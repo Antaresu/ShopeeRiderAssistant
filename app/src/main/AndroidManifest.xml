@@ -52,7 +52,7 @@
         <activity
             android:name=".ui.EarningsTrackerActivity"
             android:exported="false"
-            android:label="Pay-Out Summary & Gas"
+            android:label="Pay-Out Summary &amp; Gas"
             android:parentActivityName=".ui.MainActivity" />
 
         <!-- Native Accessibility Service (Live Screen Reading & Accurate Auto-Click) -->
@@ -73,7 +73,11 @@
             android:name=".service.FloatingOverlayService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating HUD Overlay for Shopee Driver safety" />
+        </service>
 
     </application>
 
