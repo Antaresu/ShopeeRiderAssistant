@@ -112,15 +112,21 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Handle Huawei Nova 5T Notch / Display Cutout Insets
-        val contentContainer = findViewById<View>(R.id.contentContainer)
-        ViewCompat.setOnApplyWindowInsetsListener(contentContainer) { v, insets ->
-            val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars())
-            val displayCutoutInset = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            val topPadding = maxOf(statusBarInset.top, displayCutoutInset.top)
-            v.setPadding(v.paddingLeft, topPadding, v.paddingRight, v.paddingBottom)
-            insets
-        }
+        // Handle Huawei Nova 5T Notch / Display Cutout Insets safely
+        try {
+            val contentContainer = findViewById<View>(R.id.contentContainer)
+            contentContainer?.let { container ->
+                ViewCompat.setOnApplyWindowInsetsListener(container) { v, insets ->
+                    try {
+                        val statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+                        val displayCutoutInset = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                        val topPadding = maxOf(statusBarInset.top, displayCutoutInset.top)
+                        v.setPadding(v.paddingLeft, topPadding, v.paddingRight, v.paddingBottom)
+                    } catch (_: Exception) {}
+                    insets
+                }
+            }
+        } catch (_: Exception) {}
 
         bindViews()
         setupListeners()
@@ -326,7 +332,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnClearLogs.setOnClickListener {
-            tvConsoleLogs.text = "[${timeFormat.format(Date())}] [LOGS CLEARED] Malinis na ang log stream.\n"
+            logLines.clear()
+            val timestamp = timeFormat.format(Date())
+            logLines.add("[$timestamp] [LOGS CLEARED] Malinis na ang log stream.")
+            tvConsoleLogs.text = logLines.joinToString("\n")
         }
 
         btnSimulateSampleOrder.setOnClickListener {
@@ -415,25 +424,29 @@ class MainActivity : AppCompatActivity() {
 
         dialogView.setOnItemClickListener { _, _, position, _ ->
             val selected = appList[position]
-            setTargetApp(selected.label, selected.packageName)
+            setTargetApp(selected.label, selected.packageName, true)
             dialog.dismiss()
         }
 
         dialog.show()
     }
 
-    private fun setTargetApp(name: String, packageName: String) {
-        currentTargetPackage = packageName
-        tvSelectedAppName.text = name
-        tvSelectedAppPackage.text = packageName
-        appendLog("[APP SELECTOR] Target package binded to: $packageName ($name)")
+    private fun setTargetApp(name: String, packageName: String, showToast: Boolean = false) {
+        try {
+            currentTargetPackage = packageName
+            tvSelectedAppName.text = name
+            tvSelectedAppPackage.text = packageName
+            appendLog("[APP SELECTOR] Target package: $packageName ($name)")
 
-        val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
-            putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, "SET_TARGET_APP")
-            putExtra("extra_package_name", packageName)
-        }
-        sendBroadcast(intent)
-        Toast.makeText(this, "Nakatali na ang assistant sa $name!", Toast.LENGTH_SHORT).show()
+            val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
+                putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, "SET_TARGET_APP")
+                putExtra("extra_package_name", packageName)
+            }
+            sendBroadcast(intent)
+            if (showToast) {
+                Toast.makeText(this, "Nakatali na ang assistant sa $name!", Toast.LENGTH_SHORT).show()
+            }
+        } catch (_: Exception) {}
     }
 
     private fun updateMasterStatusUI(isActive: Boolean) {
@@ -463,14 +476,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val logLines = mutableListOf<String>()
+
     private fun appendLog(message: String) {
-        val timestamp = timeFormat.format(Date())
-        val newLine = "[$timestamp] $message\n"
-        tvConsoleLogs.append(newLine)
-        val scrollLogs = findViewById<androidx.core.widget.NestedScrollView>(R.id.scrollLogs)
-        scrollLogs?.post {
-            scrollLogs.fullScroll(View.FOCUS_DOWN)
-        }
+        try {
+            val timestamp = timeFormat.format(Date())
+            logLines.add("[$timestamp] $message")
+            if (logLines.size > 80) {
+                logLines.removeAt(0)
+            }
+            tvConsoleLogs.text = logLines.joinToString("\n")
+            val scrollLogs = findViewById<androidx.core.widget.NestedScrollView>(R.id.scrollLogs)
+            scrollLogs?.post {
+                try {
+                    scrollLogs.fullScroll(View.FOCUS_DOWN)
+                } catch (_: Exception) {}
+            }
+        } catch (_: Exception) {}
     }
 
     private fun simulateSampleOrderEvaluation() {
@@ -514,53 +536,57 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun autoDetectShopeeApp() {
-        val pm = packageManager
-        var foundPkg: String? = null
-        var foundLabel: String? = null
+        try {
+            val pm = packageManager
+            var foundPkg: String? = null
+            var foundLabel: String? = null
 
-        val preferredPackages = listOf(
-            "com.shopee.delivery.driver",
-            "com.shopee.food.driver",
-            "com.shopee.driver",
-            "com.shopee.driver.ph",
-            "com.garena.delivery.driver",
-            "com.spx.rider",
-            "com.shopee.spx.driver"
-        )
+            val preferredPackages = listOf(
+                "com.shopee.delivery.driver",
+                "com.shopee.food.driver",
+                "com.shopee.driver",
+                "com.shopee.driver.ph",
+                "com.garena.delivery.driver",
+                "com.spx.rider",
+                "com.shopee.spx.driver"
+            )
 
-        for (pref in preferredPackages) {
-            try {
-                val appInfo = pm.getApplicationInfo(pref, 0)
-                foundPkg = pref
-                foundLabel = pm.getApplicationLabel(appInfo).toString()
-                break
-            } catch (_: Exception) {}
-        }
+            for (pref in preferredPackages) {
+                try {
+                    val appInfo = pm.getApplicationInfo(pref, 0)
+                    foundPkg = pref
+                    foundLabel = pm.getApplicationLabel(appInfo).toString()
+                    break
+                } catch (_: Exception) {}
+            }
 
-        if (foundPkg == null) {
-            try {
-                val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-                    addCategory(Intent.CATEGORY_LAUNCHER)
-                }
-                val resolveList = pm.queryIntentActivities(mainIntent, 0)
-                for (res in resolveList) {
-                    val pkgName = res.activityInfo.packageName.lowercase()
-                    val lbl = res.loadLabel(pm).toString().lowercase()
-                    if (pkgName.contains("shopee") || lbl.contains("shopee") || pkgName.contains("spx") || lbl.contains("spx")) {
-                        foundPkg = res.activityInfo.packageName
-                        foundLabel = res.loadLabel(pm).toString()
-                        break
+            if (foundPkg == null) {
+                try {
+                    val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                        addCategory(Intent.CATEGORY_LAUNCHER)
                     }
-                }
-            } catch (_: Exception) {}
-        }
+                    val resolveList = pm.queryIntentActivities(mainIntent, 0)
+                    for (res in resolveList) {
+                        val pkgName = res.activityInfo.packageName.lowercase()
+                        val lbl = res.loadLabel(pm).toString().lowercase()
+                        if (pkgName.contains("shopee") || lbl.contains("shopee") || pkgName.contains("spx") || lbl.contains("spx")) {
+                            foundPkg = res.activityInfo.packageName
+                            foundLabel = res.loadLabel(pm).toString()
+                            break
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
 
-        if (foundPkg != null && foundLabel != null) {
-            setTargetApp(foundLabel, foundPkg)
-            appendLog("[AUTO-DETECT] 🎯 Awtomatikong nahanap at itinakda ang App: $foundLabel ($foundPkg)")
-        } else {
-            setTargetApp("Shopee Driver (Standard)", "com.shopee.delivery.driver")
-            appendLog("[AUTO-DETECT] ℹ️ Naka-bind sa standard package: com.shopee.delivery.driver")
+            if (foundPkg != null && foundLabel != null) {
+                setTargetApp(foundLabel, foundPkg, false)
+                appendLog("[AUTO-DETECT] 🎯 Nahanap at itinakda ang App: $foundLabel")
+            } else {
+                setTargetApp("Shopee Driver (Standard)", "com.shopee.delivery.driver", false)
+                appendLog("[AUTO-DETECT] ℹ️ Naka-bind sa standard package: com.shopee.delivery.driver")
+            }
+        } catch (e: Exception) {
+            setTargetApp("Shopee Driver", "com.shopee.delivery.driver", false)
         }
     }
 

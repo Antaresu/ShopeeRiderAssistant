@@ -40,19 +40,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/')
         with:
-          tag_name: v1.0.3
-          name: "Shopee Driver Assistant v1.0.3 (Smart Availability Sync & Floating Controller)"
+          tag_name: v1.0.4
+          name: "Shopee Driver Assistant v1.0.4 (Hotfix: Startup Crash & Safe Log Buffer)"
           make_latest: true
           body: |
-            ### 🚀 Shopee Driver Assistant v1.0.3 (Huawei Nova 5T)
+            ### 🚀 Shopee Driver Assistant v1.0.4 (Huawei Nova 5T)
             
-            Pinakabagong update para sa Shopee Food at SPX riders:
-            - **Smart Live Availability Sync:** Awtomatikong nade-detect ang Availability toggle sa drawer AT sa main dashboard
-            - **Floating HUD Quick Tester:** Mini controller sa ibabaw ng mismong Shopee screen para i-test ang Availability, Settings, Incentives, at Swipe Accept
-            - **Seamless App Launch on Test:** Kapag pinindot ang Test sa loob ng app, awtomatikong bubuksan ang Shopee bago i-dispatch ang click
-            - **Smooth Scrollable Logs Console:** Hindi na nahaharang ng parent scroll; makakapag-swipe pataas at pababa sa buong log history
-            - **Auto-Detect App on Launch:** Awtomatikong hinahanap at ikinakabit ang tamang Shopee Driver package nang walang sobrang pindot
-            - **Non-restrictive Dynamic Accessibility:** Inalis ang static package filter para basahin nang live ang bawat window ng Shopee app
+            Critical Stability Hotfix:
+            - **Fixed Startup Crash ("Nilalabas agad"):** Naalis ang `textIsSelectable` conflict sa text log buffer na nagko-cause ng crash sa Android 10/EMUI
+            - **Safe Log Stream:** Gumagamit na ng thread-safe ring-buffer para sa mga logs
+            - **Safe Cutout/Insets Handling:** Protektado laban sa null cutout insets sa Huawei Nova 5T punch-hole screen
+            - **Smart Live Availability Sync:** Awtomatikong nade-detect ang Availability sa drawer at main dashboard
+            - **Floating HUD Quick Tester:** Mini on-screen controller sa ibabaw ng Shopee
+            - **Smooth Scrollable Logs:** Tuluy-tuloy na pag-scroll sa log history nang walang lag
             - **Shopee Availability Live Sync:** Nag-o-off ang auto-click kapag offline sa Shopee drawer
             - **Stylized "A" App Icon:** Puting background para sa Huawei Nova 5T
             
