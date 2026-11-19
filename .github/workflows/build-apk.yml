@@ -40,17 +40,20 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/')
         with:
-          tag_name: v1.0.0
-          name: "Shopee Driver Assistant v1.0.0 (Huawei Nova 5T Ready)"
+          tag_name: v1.0.1
+          name: "Shopee Driver Assistant v1.0.1 (App Selector & Live Logs)"
+          make_latest: true
           body: |
-            ### 🚀 Shopee Driver Assistant v1.0.0 (Huawei Nova 5T)
+            ### 🚀 Shopee Driver Assistant v1.0.1 (Huawei Nova 5T)
             
             Isang Android Assistant app para sa Shopee Food at SPX riders:
-            - **Live Screen Reading & Accurate Auto-Click / Swipe to Accept**
-            - **Zero-Click / Hands-Off Policy** sa Tondo at Oversized packages
+            - **Target Application Selector:** Nakatali sa `com.shopee.delivery.driver`
+            - **Mismong Shopee Screen Tester:** Walang home-key exit, coordinate-accurate
+            - **Live Real-Time Logs Console:** Size evaluation (Maliit vs Malake) at Geofence check
+            - **Location Controls:** Manila to Manila (Allow) vs Manila to Tondo (Zero-Click Ban)
             - **Shopee Availability Live Sync:** Nag-o-off ang auto-click kapag offline sa Shopee drawer
-            - **Honda Click 125 V4 Gas Deduction Calculator** (48 km/L)
-            - **Bagong Icon:** Stylized "A" na may puting background
+            - **Google Maps Navigation Integration:** Mabilisang pagpasa ng ruta sa Google Maps
+            - **Stylized "A" App Icon:** Puting background para sa Huawei Nova 5T
             
             #### 📲 Paano I-install:
             1. I-download ang **app-debug.apk** sa ibaba sa iyong Huawei Nova 5T.
