@@ -4,12 +4,18 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.ImageView
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -24,6 +30,13 @@ import com.rider.shopeeassistant.util.HuaweiSettingsHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+data class DeviceAppInfo(
+    val label: String,
+    val packageName: String,
+    val icon: Drawable,
+    val isShopee: Boolean
+)
 
 class MainActivity : AppCompatActivity() {
 
@@ -57,7 +70,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnRuleManilaAllow: Button
     private lateinit var btnRuleTondoBan: Button
 
-    // Google Maps Navigation
+    // Google Maps Navigation (Motorcycle Mode)
     private lateinit var btnLaunchGoogleMaps: Button
     private lateinit var btnOpenMapArea: Button
 
@@ -162,6 +175,14 @@ class MainActivity : AppCompatActivity() {
         btnOpenEarnings = findViewById(R.id.btnOpenEarnings)
     }
 
+    private fun isAccessibilityEnabled(): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.contains(packageName)
+    }
+
     private fun setupListeners() {
         // 1. Master Active Switch (Defaults to OFF)
         switchMaster.setOnCheckedChangeListener { _, isChecked ->
@@ -181,24 +202,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Select Target App Dialog
+        // 2. Select Target App from ACTUAL Installed Apps on Phone (with Permission Pre-check)
         btnSelectApp.setOnClickListener {
-            val appOptions = arrayOf(
-                "Shopee Driver (ShopeeFood & SPX) - com.shopee.delivery.driver",
-                "ShopeeFood Driver (Alternative) - com.shopee.food.driver",
-                "SPX Express Courier - com.spx.rider"
-            )
-            AlertDialog.Builder(this)
-                .setTitle("Piliin ang Target Application")
-                .setItems(appOptions) { _, which ->
-                    when (which) {
-                        0 -> setTargetApp("Shopee Driver (ShopeeFood / SPX)", "com.shopee.delivery.driver")
-                        1 -> setTargetApp("ShopeeFood Driver", "com.shopee.food.driver")
-                        2 -> setTargetApp("SPX Express Courier", "com.spx.rider")
+            // STEP 1: Verify Access Permissions first before picking
+            if (!isAccessibilityEnabled() || !Settings.canDrawOverlays(this)) {
+                AlertDialog.Builder(this)
+                    .setTitle("⚠️ Kailangan Muna ng App Access")
+                    .setMessage("Bago pumili ng app mula sa iyong device, i-ON muna ang Accessibility Service at Draw Overlay para mabasa at ma-control ng assistant ang Shopee Driver screen.")
+                    .setPositiveButton("I-ON ang Accessibility") { _, _ ->
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
-                }
-                .setNegativeButton("Kanselahin", null)
-                .show()
+                    .setNeutralButton("I-ON ang Overlay") { _, _ ->
+                        checkAndRequestOverlayPermission()
+                    }
+                    .setNegativeButton("Kanselahin", null)
+                    .show()
+                return@setOnClickListener
+            }
+
+            // STEP 2: Query All Installed Applications on Phone
+            showInstalledAppsPicker()
         }
 
         // Launch Shopee Driver App Directly
@@ -263,20 +286,21 @@ class MainActivity : AppCompatActivity() {
             appendLog("[RULE UPDATED] 🚫 Manila to Tondo: BANNED (Zero-Click: Hahayaang lumipas nang kusa).")
         }
 
-        // 6. Google Maps Direct Navigation
+        // 6. Google Maps Direct Navigation (MOTORCYCLE MODE: mode=l for Two-Wheeler)
         btnLaunchGoogleMaps.setOnClickListener {
             val destination = "Manila, Philippines"
-            val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(destination)}")
+            // mode=l is the official Google Maps motorcycle / scooter mode in Southeast Asia & Philippines
+            val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(destination)}&mode=l")
             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
                 setPackage("com.google.android.apps.maps")
             }
             try {
                 startActivity(mapIntent)
-                appendLog("[GOOGLE MAPS] Ipinasa ang ruta papuntang $destination sa Google Maps.")
+                appendLog("[GOOGLE MAPS] 🛵 Binuksan ang Motor Navigation (mode=l) para sa Click 125 V4 papuntang $destination.")
             } catch (e: Exception) {
-                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=${Uri.encode(destination)}"))
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encode(destination)}&travelmode=two_wheeler"))
                 startActivity(browserIntent)
-                appendLog("[GOOGLE MAPS] Binuksan ang ruta sa Maps browser.")
+                appendLog("[GOOGLE MAPS] 🛵 Binuksan ang Motorcycle route sa browser.")
             }
         }
 
@@ -310,6 +334,76 @@ class MainActivity : AppCompatActivity() {
         btnOpenEarnings.setOnClickListener {
             startActivity(Intent(this, EarningsTrackerActivity::class.java))
         }
+    }
+
+    private fun showInstalledAppsPicker() {
+        val pm = packageManager
+        val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        val resolveList = pm.queryIntentActivities(mainIntent, 0)
+        val appList = mutableListOf<DeviceAppInfo>()
+
+        for (resolveInfo in resolveList) {
+            val pkg = resolveInfo.activityInfo.packageName
+            if (pkg == packageName) continue // Skip our assistant app
+
+            val label = resolveInfo.loadLabel(pm).toString()
+            val icon = resolveInfo.loadIcon(pm)
+            val isShopee = pkg.contains("shopee", ignoreCase = true) ||
+                    label.contains("shopee", ignoreCase = true) ||
+                    label.contains("spx", ignoreCase = true) ||
+                    pkg.contains("delivery", ignoreCase = true)
+
+            appList.add(DeviceAppInfo(label, pkg, icon, isShopee))
+        }
+
+        // Sort: Shopee apps first, then alphabetical
+        appList.sortWith(compareByDescending<DeviceAppInfo> { it.isShopee }.thenBy { it.label })
+
+        val adapter = object : ArrayAdapter<DeviceAppInfo>(this, R.layout.dialog_app_item, appList) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: LayoutInflater.from(context).inflate(R.layout.dialog_app_item, parent, false)
+                val item = getItem(position) ?: return view
+
+                val ivIcon = view.findViewById<ImageView>(R.id.ivAppIcon)
+                val tvName = view.findViewById<TextView>(R.id.tvAppItemName)
+                val tvPkg = view.findViewById<TextView>(R.id.tvAppItemPackage)
+                val tvBadge = view.findViewById<TextView>(R.id.tvAppItemBadge)
+
+                ivIcon.setImageDrawable(item.icon)
+                tvName.text = item.label
+                tvPkg.text = item.packageName
+
+                if (item.isShopee) {
+                    tvBadge.visibility = View.VISIBLE
+                    tvBadge.text = "SHOPEE COMPATIBLE"
+                } else {
+                    tvBadge.visibility = View.GONE
+                }
+
+                return view
+            }
+        }
+
+        val dialogView = ListView(this).apply {
+            this.adapter = adapter
+            divider = null
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Piliin ang App mula sa Phone Mo")
+            .setView(dialogView)
+            .setNegativeButton("Kanselahin", null)
+            .create()
+
+        dialogView.setOnItemClickListener { _, _, position, _ ->
+            val selected = appList[position]
+            setTargetApp(selected.label, selected.packageName)
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun setTargetApp(name: String, packageName: String) {

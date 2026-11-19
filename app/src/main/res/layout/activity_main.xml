@@ -453,7 +453,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="🗺️ GOOGLE MAPS NAVIGATION"
+                        android:text="🛵 GOOGLE MAPS MOTOR NAVIGATION"
                         android:textColor="@color/text_white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -462,7 +462,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="Ipapasa nang direkta sa Google Maps app ang na-detect na ruta at delivery address:"
+                        android:text="Naka-set sa Two-Wheeler / Motor mode (Honda Click 125 V4). Ipapasa ang ruta nang direkta sa Maps:"
                         android:textColor="@color/text_muted"
                         android:textSize="10sp" />
 
@@ -477,7 +477,7 @@
                             android:layout_width="0dp"
                             android:layout_height="40dp"
                             android:layout_weight="1"
-                            android:text="🗺️ Buksan Google Maps"
+                            android:text="🛵 Buksan Maps (Motor Mode)"
                             android:textColor="@color/text_white"
                             android:textSize="10sp"
                             android:backgroundTint="@color/shopee_orange" />

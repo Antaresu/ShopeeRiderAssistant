@@ -50,7 +50,14 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
             when (actionType) {
                 "ACTION_TEST_AVAILABILITY_CLICK" -> {
                     val root = rootInActiveWindow
-                    val clicked = OrderParser.clickAvailabilitySwitch(root)
+                    var clicked = OrderParser.clickAvailabilitySwitch(root)
+                    if (!clicked) {
+                        val bounds = OrderParser.findAvailabilitySwitchBounds(root)
+                        if (bounds != null) {
+                            dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                            clicked = true
+                        }
+                    }
                     val newStatus = !isShopeeAvailabilityOn
                     updateAvailabilityStatus(newStatus, true)
                     broadcastLog("[TEST CLICK] Shopee Availability switch toggle: ${if (clicked) "Click na-dispatch sa screen" else "Simulated toggle to ${if (newStatus) "ON" else "OFF"}"}")
@@ -58,13 +65,27 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
                 }
                 "ACTION_TEST_INCENTIVES_CLICK" -> {
                     val root = rootInActiveWindow
-                    val clicked = OrderParser.clickNodeWithText(root, listOf("incentives", "instant s-points", "s-points"))
+                    var clicked = OrderParser.clickNodeWithText(root, listOf("incentives", "instant s-points", "s-points"))
+                    if (!clicked) {
+                        val bounds = OrderParser.findNodeBoundsWithText(root, listOf("incentives", "instant s-points", "s-points"))
+                        if (bounds != null) {
+                            dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                            clicked = true
+                        }
+                    }
                     broadcastLog("[TEST CLICK] Shopee Incentives menu click: ${if (clicked) "Na-click ang Incentives" else "Walang Incentives text sa active screen"}")
                     speak(if (clicked) "Na-click ang Incentives." else "Sinubukan ang Incentives menu.")
                 }
                 "ACTION_TEST_SETTINGS_CLICK" -> {
                     val root = rootInActiveWindow
-                    val clicked = OrderParser.clickNodeWithText(root, listOf("settings", "setting"))
+                    var clicked = OrderParser.clickNodeWithText(root, listOf("settings", "setting"))
+                    if (!clicked) {
+                        val bounds = OrderParser.findNodeBoundsWithText(root, listOf("settings", "setting"))
+                        if (bounds != null) {
+                            dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                            clicked = true
+                        }
+                    }
                     broadcastLog("[TEST CLICK] Shopee Settings menu click: ${if (clicked) "Na-click ang Settings" else "Walang Settings text sa screen"}")
                     speak(if (clicked) "Na-click ang Settings." else "Sinubukan ang Settings menu.")
                 }

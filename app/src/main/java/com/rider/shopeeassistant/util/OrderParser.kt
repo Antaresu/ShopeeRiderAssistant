@@ -20,15 +20,23 @@ object OrderParser {
     /**
      * Checks if the "Availability" switch is ON or OFF in the Shopee Driver drawer/screen
      */
+    /**
+     * Checks if the "Availability" switch is ON or OFF in the Shopee Driver drawer/screen
+     */
     fun detectAvailabilitySwitch(rootNode: AccessibilityNodeInfo): Boolean? {
         var isAvailable: Boolean? = null
 
         fun findAvailability(node: AccessibilityNodeInfo?) {
             if (node == null || isAvailable != null) return
 
-            val text = node.text?.toString()?.trim() ?: ""
-            if (text.equals("Availability", ignoreCase = true)) {
-                // Check parent or adjacent sibling for a Switch / Checkable view
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+            if (text.equals("Availability", ignoreCase = true) || text.contains("availability", ignoreCase = true)) {
+                // 1. Check if node itself is checkable
+                if (node.isCheckable) {
+                    isAvailable = node.isChecked
+                    return
+                }
+                // 2. Check parent or adjacent sibling for a Switch / Checkable view
                 val parent = node.parent
                 if (parent != null) {
                     for (i in 0 until parent.childCount) {
@@ -62,8 +70,8 @@ object OrderParser {
 
         fun searchAndClick(node: AccessibilityNodeInfo?) {
             if (node == null || clicked) return
-            val text = node.text?.toString()?.trim() ?: ""
-            if (text.equals("Availability", ignoreCase = true)) {
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+            if (text.equals("Availability", ignoreCase = true) || text.contains("availability", ignoreCase = true)) {
                 val parent = node.parent
                 if (parent != null) {
                     for (i in 0 until parent.childCount) {
@@ -76,6 +84,14 @@ object OrderParser {
                             }
                         }
                     }
+                    if (parent.isClickable) {
+                        clicked = parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        if (clicked) return
+                    }
+                }
+                if (node.isClickable) {
+                    clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    if (clicked) return
                 }
             }
             for (i in 0 until node.childCount) {
@@ -88,7 +104,53 @@ object OrderParser {
     }
 
     /**
-     * Finds and clicks a node containing any of the given keywords (e.g. "Incentives", "Settings").
+     * Returns the screen bounds of the Availability switch for coordinate tap fallback.
+     */
+    fun findAvailabilitySwitchBounds(rootNode: AccessibilityNodeInfo?): Rect? {
+        if (rootNode == null) return null
+        var foundRect: Rect? = null
+
+        fun search(node: AccessibilityNodeInfo?) {
+            if (node == null || foundRect != null) return
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+            if (text.equals("Availability", ignoreCase = true) || text.contains("availability", ignoreCase = true)) {
+                val parent = node.parent
+                if (parent != null) {
+                    for (i in 0 until parent.childCount) {
+                        val child = parent.getChild(i)
+                        if (child != null) {
+                            val className = child.className?.toString() ?: ""
+                            if (child.isCheckable || className.contains("Switch") || className.contains("CompoundButton")) {
+                                val r = Rect()
+                                child.getBoundsInScreen(r)
+                                if (!r.isEmpty) {
+                                    foundRect = r
+                                    return
+                                }
+                            }
+                        }
+                    }
+                    val parentRect = Rect()
+                    parent.getBoundsInScreen(parentRect)
+                    if (!parentRect.isEmpty) {
+                        // Switch is located on the right side of the row
+                        val switchX = (parentRect.right - (parentRect.height() * 0.8f)).toInt()
+                        foundRect = Rect(switchX, parentRect.top, parentRect.right, parentRect.bottom)
+                        return
+                    }
+                }
+            }
+            for (i in 0 until node.childCount) {
+                search(node.getChild(i))
+            }
+        }
+
+        search(rootNode)
+        return foundRect
+    }
+
+    /**
+     * Finds and clicks a node containing any of the given keywords (e.g. "Incentives", "Settings", "My Balance").
      */
     fun clickNodeWithText(rootNode: AccessibilityNodeInfo?, keywords: List<String>): Boolean {
         if (rootNode == null) return false
@@ -116,6 +178,35 @@ object OrderParser {
 
         searchAndClick(rootNode)
         return clicked
+    }
+
+    /**
+     * Returns screen bounds of a node matching keywords for coordinate tap fallback.
+     */
+    fun findNodeBoundsWithText(rootNode: AccessibilityNodeInfo?, keywords: List<String>): Rect? {
+        if (rootNode == null) return null
+        var foundRect: Rect? = null
+
+        fun search(node: AccessibilityNodeInfo?) {
+            if (node == null || foundRect != null) return
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim().lowercase()
+            for (kw in keywords) {
+                if (text.contains(kw.lowercase())) {
+                    val rect = Rect()
+                    node.getBoundsInScreen(rect)
+                    if (!rect.isEmpty) {
+                        foundRect = rect
+                        return
+                    }
+                }
+            }
+            for (i in 0 until node.childCount) {
+                search(node.getChild(i))
+            }
+        }
+
+        search(rootNode)
+        return foundRect
     }
 
     /**
