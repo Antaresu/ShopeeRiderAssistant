@@ -8,6 +8,8 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOpenEarnings: Button
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private val logReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
