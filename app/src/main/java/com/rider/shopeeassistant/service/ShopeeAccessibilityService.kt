@@ -124,6 +124,11 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         Log.d(TAG, "Shopee Accessibility Service Connected and Active!")
         tts = TextToSpeech(this, this)
 
+        // Dynamic package monitoring: listen to any target package without restrictive static XML filters
+        val info = serviceInfo
+        info.packageNames = null
+        serviceInfo = info
+
         val filter = IntentFilter(ACTION_TEST_GESTURE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(testCommandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -150,17 +155,26 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         if (event == null) return
 
         val packageName = event.packageName?.toString() ?: return
-        if (!packageName.contains("shopee") && !packageName.contains("delivery")) {
+        val isTargetApp = (targetPackageName.isNotEmpty() && packageName.equals(targetPackageName, ignoreCase = true)) ||
+                packageName.contains("shopee", ignoreCase = true) ||
+                packageName.contains("delivery", ignoreCase = true) ||
+                packageName.contains("driver", ignoreCase = true) ||
+                packageName.contains("food", ignoreCase = true) ||
+                packageName.contains("spx", ignoreCase = true) ||
+                packageName.contains("rider", ignoreCase = true)
+
+        if (!isTargetApp) {
             return
         }
 
         val rootNode = rootInActiveWindow ?: return
 
         try {
-            // 1. LIVE CHECK: Basahin kung naka-ON o naka-OFF ang Availability toggle sa Shopee Driver drawer
+            // 1. LIVE CHECK: Basahin kung naka-ON o naka-OFF ang Availability toggle sa Shopee Driver drawer o main screen
             val detectedAvailability = OrderParser.detectAvailabilitySwitch(rootNode)
             if (detectedAvailability != null && detectedAvailability != isShopeeAvailabilityOn) {
                 updateAvailabilityStatus(detectedAvailability, false)
+                broadcastLog("[LIVE AVAILABILITY] Shopee state na-detect: ${if (detectedAvailability) "🟢 ON (Online)" else "🔴 OFF (Offline)"}")
             }
 
             // 2. KUNG NAKA-OFF ANG AVAILABILITY SA SHOPEE: Auto-click is OFF & others
@@ -192,6 +206,9 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
     private fun updateAvailabilityStatus(isOn: Boolean, isFromManualTest: Boolean) {
         isShopeeAvailabilityOn = isOn
         broadcastAvailabilityStatus()
+
+        val statusText = if (isOn) "🟢 ON AVAILABILITY - Ready to Auto-Accept" else "🔴 OFF AVAILABILITY - Auto-click is OFF and others"
+        broadcastLog("[AVAILABILITY UPDATE] Shopee Driver: $statusText")
 
         if (isOn) {
             speak("Shopee availability is ON. Auto click and scanning active.")

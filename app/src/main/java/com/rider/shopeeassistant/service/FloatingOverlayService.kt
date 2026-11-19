@@ -25,10 +25,14 @@ class FloatingOverlayService : Service() {
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
 
+    private var tvTitle: TextView? = null
     private var tvReadout: TextView? = null
     private var tvCoords: TextView? = null
     private var tvVerdict: TextView? = null
     private var dotStatus: View? = null
+    private var expandableSection: View? = null
+    private var btnToggleExpand: TextView? = null
+    private var isExpanded = true
 
     private val liveUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -72,12 +76,14 @@ class FloatingOverlayService : Service() {
     private fun updateAvailabilityDisplay(isOn: Boolean) {
         if (isOn) {
             dotStatus?.setBackgroundResource(R.drawable.circle_green)
+            tvTitle?.text = "SHOPEE ASSISTANT (🟢 ON)"
             tvVerdict?.text = "🟢 ON AVAILABILITY - Ready to Auto-Accept"
             tvVerdict?.setTextColor(0xFF10B981.toInt())
             tvCoords?.text = "Auto-Click: ACTIVE"
             tvCoords?.setTextColor(0xFF38BDF8.toInt())
         } else {
             dotStatus?.setBackgroundResource(R.drawable.circle_red)
+            tvTitle?.text = "SHOPEE ASSISTANT (🔴 OFF)"
             tvReadout?.text = "Shopee Driver is Offline / Break"
             tvVerdict?.text = "🔴 off availability - auto click is off and others"
             tvVerdict?.setTextColor(0xFFEF4444.toInt())
@@ -106,10 +112,40 @@ class FloatingOverlayService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         overlayView = LayoutInflater.from(this).inflate(R.layout.overlay_hud, null)
 
+        tvTitle = overlayView?.findViewById(R.id.overlayTitle)
         tvReadout = overlayView?.findViewById(R.id.overlayReadoutText)
         tvCoords = overlayView?.findViewById(R.id.overlayCoordText)
         tvVerdict = overlayView?.findViewById(R.id.overlayVerdictBanner)
         dotStatus = overlayView?.findViewById(R.id.overlayStatusDot)
+        expandableSection = overlayView?.findViewById(R.id.overlayExpandableSection)
+        btnToggleExpand = overlayView?.findViewById(R.id.btnOverlayToggleExpand)
+
+        val headerView = overlayView?.findViewById<View>(R.id.overlayHeader)
+        val btnTestAvail = overlayView?.findViewById<View>(R.id.btnOverlayTestAvail)
+        val btnTestSettings = overlayView?.findViewById<View>(R.id.btnOverlayTestSettings)
+        val btnTestIncentives = overlayView?.findViewById<View>(R.id.btnOverlayTestIncentives)
+        val btnTestSwipe = overlayView?.findViewById<View>(R.id.btnOverlayTestSwipe)
+
+        // Expand / Collapse Action
+        btnToggleExpand?.setOnClickListener {
+            isExpanded = !isExpanded
+            expandableSection?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+            btnToggleExpand?.text = if (isExpanded) "▼" else "▲"
+        }
+
+        // Quick On-Screen Tester buttons (Directly clicks Shopee underneath)
+        btnTestAvail?.setOnClickListener {
+            sendTestGesture("ACTION_TEST_AVAILABILITY_CLICK")
+        }
+        btnTestSettings?.setOnClickListener {
+            sendTestGesture("ACTION_TEST_SETTINGS_CLICK")
+        }
+        btnTestIncentives?.setOnClickListener {
+            sendTestGesture("ACTION_TEST_INCENTIVES_CLICK")
+        }
+        btnTestSwipe?.setOnClickListener {
+            sendTestGesture("ACTION_TEST_SWIPE_ACCEPT")
+        }
 
         val layoutParamsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -126,11 +162,12 @@ class FloatingOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 40
-            y = 120
+            x = 30
+            y = 100
         }
 
-        overlayView?.setOnTouchListener(object : View.OnTouchListener {
+        // Drag listener attached only to header
+        headerView?.setOnTouchListener(object : View.OnTouchListener {
             private var initialX = 0
             private var initialY = 0
             private var initialTouchX = 0f
@@ -158,6 +195,13 @@ class FloatingOverlayService : Service() {
         })
 
         windowManager?.addView(overlayView, params)
+    }
+
+    private fun sendTestGesture(action: String) {
+        val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
+            putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, action)
+        }
+        sendBroadcast(intent)
     }
 
     private fun startForegroundServiceNotification() {

@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/overlayContainer"
-    android:layout_width="wrap_content"
+    android:layout_width="290dp"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/bg_overlay_pill"
     android:padding="8dp">
 
-    <!-- Header & Status Dot -->
+    <!-- Header & Status Dot & Collapse Button -->
     <LinearLayout
+        android:id="@+id/overlayHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -16,51 +17,138 @@
 
         <View
             android:id="@+id/overlayStatusDot"
-            android:layout_width="8dp"
-            android:layout_height="8dp"
-            android:background="@drawable/circle_green" />
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:background="@drawable/circle_red" />
 
         <TextView
             android:id="@+id/overlayTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginStart="6dp"
-            android:text="SHOPEE SCANNER LIVE"
+            android:text="SHOPEE ASSISTANT (OFF)"
             android:textColor="#FFFFFF"
             android:textSize="10sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/btnOverlayToggleExpand"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:gravity="center"
+            android:text="▼"
+            android:textColor="#94A3B8"
+            android:textSize="11sp"
+            android:background="@drawable/bg_overlay_btn" />
     </LinearLayout>
 
-    <!-- Live Readout Line -->
-    <TextView
-        android:id="@+id/overlayReadoutText"
-        android:layout_width="wrap_content"
+    <!-- Collapsible Container -->
+    <LinearLayout
+        android:id="@+id/overlayExpandableSection"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:text="Naka-standby sa Shopee Driver..."
-        android:textColor="#94A3B8"
-        android:textSize="10sp" />
+        android:orientation="vertical"
+        android:visibility="visible">
 
-    <!-- Live Target Coordinates Line -->
-    <TextView
-        android:id="@+id/overlayCoordText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="Target: [N/A]"
-        android:textColor="#38BDF8"
-        android:textSize="9sp"
-        android:fontFamily="monospace" />
+        <!-- Live Readout Line -->
+        <TextView
+            android:id="@+id/overlayReadoutText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Naka-standby sa Shopee Driver..."
+            android:textColor="#94A3B8"
+            android:textSize="10sp" />
 
-    <!-- Verdict Banner -->
-    <TextView
-        android:id="@+id/overlayVerdictBanner"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Rule: Manila Only | No Tondo"
-        android:textColor="#10B981"
-        android:textSize="9sp"
-        android:textStyle="bold" />
+        <!-- Live Target Coordinates Line -->
+        <TextView
+            android:id="@+id/overlayCoordText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Auto-Click: PAUSED (Offline)"
+            android:textColor="#38BDF8"
+            android:textSize="9sp"
+            android:fontFamily="monospace" />
+
+        <!-- Verdict Banner -->
+        <TextView
+            android:id="@+id/overlayVerdictBanner"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="🔴 off availability - auto click is off and others"
+            android:textColor="#EF4444"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <!-- Quick Test Buttons Directly Over Shopee Screen -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Mabilisang Pindot sa Shopee Screen:"
+            android:textColor="#64748B"
+            android:textSize="8sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/btnOverlayTestAvail"
+                android:layout_width="0dp"
+                android:layout_height="28dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="⚡ Avail"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_overlay_btn" />
+
+            <TextView
+                android:id="@+id/btnOverlayTestSettings"
+                android:layout_width="0dp"
+                android:layout_height="28dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:text="⚙️ Settings"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_overlay_btn" />
+
+            <TextView
+                android:id="@+id/btnOverlayTestIncentives"
+                android:layout_width="0dp"
+                android:layout_height="28dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:text="🎁 S-Points"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_overlay_btn" />
+
+            <TextView
+                android:id="@+id/btnOverlayTestSwipe"
+                android:layout_width="0dp"
+                android:layout_height="28dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:text="👉 Swipe"
+                android:textColor="#10B981"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_overlay_btn" />
+        </LinearLayout>
+    </LinearLayout>
 
 </LinearLayout>

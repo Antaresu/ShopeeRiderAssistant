@@ -40,19 +40,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/')
         with:
-          tag_name: v1.0.2
-          name: "Shopee Driver Assistant v1.0.2 (Device App Picker & Motorcycle Navigation)"
+          tag_name: v1.0.3
+          name: "Shopee Driver Assistant v1.0.3 (Smart Availability Sync & Floating Controller)"
           make_latest: true
           body: |
-            ### 🚀 Shopee Driver Assistant v1.0.2 (Huawei Nova 5T)
+            ### 🚀 Shopee Driver Assistant v1.0.3 (Huawei Nova 5T)
             
-            Isang Android Assistant app para sa Shopee Food at SPX riders (Honda Click 125 V4):
-            - **Device App Picker:** Binabasa ang totoong apps mula sa Huawei Nova 5T kasama ang totoong app icons
-            - **Permissions Pre-Check Guard:** Sinisigurong naka-ON muna ang Accessibility at Overlay bago mamili ng target app
-            - **Motorcycle Mode para sa Google Maps:** Dalawang gulong / motor navigation (`mode=l`) para sa Honda Click 125 V4
-            - **Mismong Shopee Screen Tester:** Walang home exit, coordinate tap fallback para sa Availability, Incentives, Settings, at Accept
-            - **Live Real-Time Logs Console:** Size evaluation (Maliit vs Malake/Mahaba) at Geofence check
-            - **Location Controls:** Manila to Manila (Allow) vs Manila to Tondo (Zero-Click Ban)
+            Pinakabagong update para sa Shopee Food at SPX riders:
+            - **Smart Live Availability Sync:** Awtomatikong nade-detect ang Availability toggle sa drawer AT sa main dashboard
+            - **Floating HUD Quick Tester:** Mini controller sa ibabaw ng mismong Shopee screen para i-test ang Availability, Settings, Incentives, at Swipe Accept
+            - **Seamless App Launch on Test:** Kapag pinindot ang Test sa loob ng app, awtomatikong bubuksan ang Shopee bago i-dispatch ang click
+            - **Smooth Scrollable Logs Console:** Hindi na nahaharang ng parent scroll; makakapag-swipe pataas at pababa sa buong log history
+            - **Auto-Detect App on Launch:** Awtomatikong hinahanap at ikinakabit ang tamang Shopee Driver package nang walang sobrang pindot
+            - **Non-restrictive Dynamic Accessibility:** Inalis ang static package filter para basahin nang live ang bawat window ng Shopee app
             - **Shopee Availability Live Sync:** Nag-o-off ang auto-click kapag offline sa Shopee drawer
             - **Stylized "A" App Icon:** Puting background para sa Huawei Nova 5T
             

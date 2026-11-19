@@ -122,6 +122,9 @@ class MainActivity : AppCompatActivity() {
         bindViews()
         setupListeners()
 
+        // Auto-detect Shopee Driver / Food / SPX package on launch
+        autoDetectShopeeApp()
+
         // Register Log & Availability Broadcast Receivers
         val filter = IntentFilter().apply {
             addAction(ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS)
@@ -308,7 +311,17 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, AreaSelectorActivity::class.java))
         }
 
-        // 7. Logs Controls
+        // 7. Smooth Logs Scroll & Controls
+        val scrollLogs = findViewById<androidx.core.widget.NestedScrollView>(R.id.scrollLogs)
+        scrollLogs?.setOnTouchListener { v, event ->
+            // Prevent parent ScrollView from intercepting log scrolling gestures
+            v.parent.requestDisallowInterceptTouchEvent(true)
+            if (event.action == android.view.MotionEvent.ACTION_UP || event.action == android.view.MotionEvent.ACTION_CANCEL) {
+                v.parent.requestDisallowInterceptTouchEvent(false)
+            }
+            false
+        }
+
         btnClearLogs.setOnClickListener {
             tvConsoleLogs.text = "[${timeFormat.format(Date())}] [LOGS CLEARED] Malinis na ang log stream.\n"
         }
@@ -449,9 +462,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun appendLog(message: String) {
         val timestamp = timeFormat.format(Date())
-        val currentText = tvConsoleLogs.text.toString()
         val newLine = "[$timestamp] $message\n"
-        tvConsoleLogs.text = newLine + currentText
+        tvConsoleLogs.append(newLine)
+        val scrollLogs = findViewById<androidx.core.widget.NestedScrollView>(R.id.scrollLogs)
+        scrollLogs?.post {
+            scrollLogs.fullScroll(View.FOCUS_DOWN)
+        }
     }
 
     private fun simulateSampleOrderEvaluation() {
@@ -473,11 +489,76 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendGestureTestCommand(actionName: String, extraBool: Boolean = false) {
-        val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
-            putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, actionName)
-            putExtra("extra_toggle_value", extraBool)
+        // 1. If testing an on-screen Shopee action, automatically switch to the target Shopee app!
+        if (actionName.startsWith("ACTION_TEST_") && actionName != "TOGGLE_AVAILABILITY_TEST") {
+            val launchIntent = packageManager.getLaunchIntentForPackage(currentTargetPackage)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                startActivity(launchIntent)
+                Toast.makeText(this, "Binubuksan ang Shopee Driver para subukan ang click...", Toast.LENGTH_SHORT).show()
+            }
         }
-        sendBroadcast(intent)
+
+        // 2. Delay dispatch so Shopee window is drawn and is the active window!
+        val delayMs = if (actionName.startsWith("ACTION_TEST_") && actionName != "TOGGLE_AVAILABILITY_TEST") 1200L else 50L
+        mainHandler.postDelayed({
+            val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
+                putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, actionName)
+                putExtra("extra_toggle_value", extraBool)
+            }
+            sendBroadcast(intent)
+        }, delayMs)
+    }
+
+    private fun autoDetectShopeeApp() {
+        val pm = packageManager
+        var foundPkg: String? = null
+        var foundLabel: String? = null
+
+        val preferredPackages = listOf(
+            "com.shopee.delivery.driver",
+            "com.shopee.food.driver",
+            "com.shopee.driver",
+            "com.shopee.driver.ph",
+            "com.garena.delivery.driver",
+            "com.spx.rider",
+            "com.shopee.spx.driver"
+        )
+
+        for (pref in preferredPackages) {
+            try {
+                val appInfo = pm.getApplicationInfo(pref, 0)
+                foundPkg = pref
+                foundLabel = pm.getApplicationLabel(appInfo).toString()
+                break
+            } catch (_: Exception) {}
+        }
+
+        if (foundPkg == null) {
+            try {
+                val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+                val resolveList = pm.queryIntentActivities(mainIntent, 0)
+                for (res in resolveList) {
+                    val pkgName = res.activityInfo.packageName.lowercase()
+                    val lbl = res.loadLabel(pm).toString().lowercase()
+                    if (pkgName.contains("shopee") || lbl.contains("shopee") || pkgName.contains("spx") || lbl.contains("spx")) {
+                        foundPkg = res.activityInfo.packageName
+                        foundLabel = res.loadLabel(pm).toString()
+                        break
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (foundPkg != null && foundLabel != null) {
+            setTargetApp(foundLabel, foundPkg)
+            appendLog("[AUTO-DETECT] 🎯 Awtomatikong nahanap at itinakda ang App: $foundLabel ($foundPkg)")
+        } else {
+            setTargetApp("Shopee Driver (Standard)", "com.shopee.delivery.driver")
+            appendLog("[AUTO-DETECT] ℹ️ Naka-bind sa standard package: com.shopee.delivery.driver")
+        }
     }
 
     private fun checkAndRequestOverlayPermission(): Boolean {

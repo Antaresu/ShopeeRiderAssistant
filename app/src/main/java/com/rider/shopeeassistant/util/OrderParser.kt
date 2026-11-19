@@ -18,33 +18,61 @@ object OrderParser {
     )
 
     /**
-     * Checks if the "Availability" switch is ON or OFF in the Shopee Driver drawer/screen
-     */
-    /**
-     * Checks if the "Availability" switch is ON or OFF in the Shopee Driver drawer/screen
+     * Checks if the "Availability" switch is ON or OFF in the Shopee Driver drawer or main screen
      */
     fun detectAvailabilitySwitch(rootNode: AccessibilityNodeInfo): Boolean? {
         var isAvailable: Boolean? = null
 
-        fun findAvailability(node: AccessibilityNodeInfo?) {
+        fun inspectNode(node: AccessibilityNodeInfo?) {
             if (node == null || isAvailable != null) return
 
-            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
-            if (text.equals("Availability", ignoreCase = true) || text.contains("availability", ignoreCase = true)) {
-                // 1. Check if node itself is checkable
+            val text = (node.text?.toString() ?: "").trim()
+            val desc = (node.contentDescription?.toString() ?: "").trim()
+            val combined = "$text $desc".lowercase()
+
+            // 1. Drawer check: "Availability" row
+            if (combined.contains("availability")) {
                 if (node.isCheckable) {
                     isAvailable = node.isChecked
                     return
                 }
-                // 2. Check parent or adjacent sibling for a Switch / Checkable view
                 val parent = node.parent
                 if (parent != null) {
+                    // Check siblings and children of siblings
                     for (i in 0 until parent.childCount) {
-                        val child = parent.getChild(i)
-                        if (child != null) {
-                            val className = child.className?.toString() ?: ""
-                            if (child.isCheckable || className.contains("Switch") || className.contains("CheckBox") || className.contains("CompoundButton")) {
-                                isAvailable = child.isChecked
+                        val child = parent.getChild(i) ?: continue
+                        val cText = (child.text?.toString() ?: "").lowercase()
+                        val cDesc = (child.contentDescription?.toString() ?: "").lowercase()
+                        val cClass = (child.className?.toString() ?: "")
+
+                        if (child.isCheckable || cClass.contains("Switch") || cClass.contains("Compound") || cClass.contains("CheckBox")) {
+                            isAvailable = child.isChecked
+                            return
+                        }
+                        if (cDesc.contains("checked") || cDesc.contains("on") || cDesc.contains("true") || cText == "on") {
+                            isAvailable = true
+                            return
+                        }
+                        if (cDesc.contains("unchecked") || cDesc.contains("off") || cDesc.contains("false") || cText == "off") {
+                            isAvailable = false
+                            return
+                        }
+
+                        // Grandchildren (e.g. switch inside container)
+                        for (j in 0 until child.childCount) {
+                            val gc = child.getChild(j) ?: continue
+                            val gcDesc = (gc.contentDescription?.toString() ?: "").lowercase()
+                            val gcClass = (gc.className?.toString() ?: "")
+                            if (gc.isCheckable || gcClass.contains("Switch")) {
+                                isAvailable = gc.isChecked
+                                return
+                            }
+                            if (gcDesc.contains("checked") || gcDesc.contains("on") || gcDesc.contains("true")) {
+                                isAvailable = true
+                                return
+                            }
+                            if (gcDesc.contains("unchecked") || gcDesc.contains("off") || gcDesc.contains("false")) {
+                                isAvailable = false
                                 return
                             }
                         }
@@ -53,11 +81,39 @@ object OrderParser {
             }
 
             for (i in 0 until node.childCount) {
-                findAvailability(node.getChild(i))
+                inspectNode(node.getChild(i))
             }
         }
 
-        findAvailability(rootNode)
+        inspectNode(rootNode)
+
+        // 2. If not found via Availability row, check main screen driver status keywords
+        if (isAvailable == null) {
+            fun scanGlobalKeywords(node: AccessibilityNodeInfo?) {
+                if (node == null || isAvailable != null) return
+                val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim().lowercase()
+
+                if (text.contains("finding orders") || text.contains("looking for orders") ||
+                    text.contains("ready for orders") || text.contains("you are online") ||
+                    text == "online" || text.contains("taking orders") || text.contains("naka-online")) {
+                    isAvailable = true
+                    return
+                }
+
+                if (text.contains("you are offline") || text.contains("tap to go online") ||
+                    text.contains("start working") || text.contains("turn on availability") ||
+                    text == "offline" || text.contains("pahinga muna") || text.contains("naka-offline")) {
+                    isAvailable = false
+                    return
+                }
+
+                for (i in 0 until node.childCount) {
+                    scanGlobalKeywords(node.getChild(i))
+                }
+            }
+            scanGlobalKeywords(rootNode)
+        }
+
         return isAvailable
     }
 

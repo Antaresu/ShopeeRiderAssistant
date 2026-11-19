@@ -535,24 +535,37 @@
                             android:backgroundTint="@color/border_dark" />
                     </LinearLayout>
 
-                    <!-- Scrollable Log Box -->
-                    <ScrollView
+                    <!-- Smooth Scrollable Log Box with Touch Intercept Support -->
+                    <androidx.core.widget.NestedScrollView
+                        android:id="@+id/scrollLogs"
                         android:layout_width="match_parent"
-                        android:layout_height="130dp"
+                        android:layout_height="180dp"
                         android:layout_marginTop="6dp"
                         android:background="@drawable/bg_input_field"
-                        android:padding="8dp">
+                        android:padding="8dp"
+                        android:fillViewport="true"
+                        android:scrollbars="vertical"
+                        android:nestedScrollingEnabled="true">
 
                         <TextView
                             android:id="@+id/tvConsoleLogs"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="[12:00:00] [SYSTEM] Shopee Driver Assistant v1.0.0 handa na.\n[12:00:01] [BIND] Target App: com.shopee.delivery.driver\n[12:00:02] [AVAILABILITY] Shopee Drawer: 🔴 OFF -> Auto-click is OFF and others.\n[12:00:03] [RULES] Allowed: Manila | Banned: Tondo (Zero-Click)."
+                            android:text="[12:00:00] [SYSTEM] Shopee Driver Assistant v1.0.3 handa na.\n[12:00:01] [BIND] Target App: com.shopee.delivery.driver\n[12:00:02] [AVAILABILITY] Shopee Drawer: 🔴 OFF -> Auto-click is OFF and others.\n[12:00:03] [RULES] Allowed: Manila | Banned: Tondo (Zero-Click)."
                             android:textColor="#38BDF8"
                             android:textSize="10sp"
                             android:fontFamily="monospace"
-                            android:lineSpacingExtra="2dp" />
-                    </ScrollView>
+                            android:lineSpacingExtra="3dp"
+                            android:textIsSelectable="true" />
+                    </androidx.core.widget.NestedScrollView>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="💡 Tip: I-swipe pataas o pababa ang kahon para i-scroll ang lumang logs."
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp" />
 
                     <!-- Simulate Sample Log Button -->
                     <Button
