@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/mainRootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/contentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Title Bar with Notch Inset -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <ImageView
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    app:tint="@color/shopee_orange" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Shopee Driver Assistant"
+                        android:textColor="@color/text_white"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Huawei Nova 5T • Honda Click 125 V4"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchMasterActive"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    app:thumbTint="@color/emerald_pass" />
+            </LinearLayout>
+
+            <!-- SHOPEE DRIVER AVAILABILITY LIVE SYNC CARD (Requested by user) -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardAvailabilitySync"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="14dp"
+                app:cardBackgroundColor="@color/card_dark">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <div
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Shopee Driver Availability Status (Live Sync)"
+                            android:textColor="@color/text_muted"
+                            android:textSize="10sp"
+                            android:textAllCaps="true"
+                            android:fontFamily="monospace" />
+                    </div>
+
+                    <!-- Live Banner: ON AVAILABILITY vs OFF AVAILABILITY -->
+                    <LinearLayout
+                        android:id="@+id/bannerAvailabilityLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_input_field"
+                        android:padding="10dp"
+                        android:gravity="center_vertical">
+
+                        <View
+                            android:id="@+id/dotAvailabilitySync"
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
+                            android:background="@drawable/circle_green" />
+
+                        <TextView
+                            android:id="@+id/tvAvailabilitySyncText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:text="🟢 on availability - active scanning &amp; ready"
+                            android:textColor="@color/emerald_pass"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvAvailabilitySubNotice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Kahit active ang app: kapag in-off mo ang Availability sa Shopee drawer, kusang mag-o-off ang auto click."
+                        android:textColor="@color/text_muted"
+                        android:textSize="10sp" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- LIVE TESTER CARD -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:cardCornerRadius="14dp"
+                app:cardBackgroundColor="@color/card_dark">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="🎯 Live Click &amp; Swipe Gesture Tester"
+                            android:textColor="@color/text_white"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Test Mode"
+                            android:textColor="@color/shopee_orange"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Subukan kung gumagana ang pag-click at pag-swipe ng Accessibility nang totoo:"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp" />
+
+                    <!-- Quick Action Buttons -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="10dp">
+
+                        <Button
+                            android:id="@+id/btnTestHome"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:text="🏠 Click: Home"
+                            android:textColor="@color/text_white"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/shopee_orange" />
+
+                        <Button
+                            android:id="@+id/btnTestNotifications"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="🔔 Notification"
+                            android:textColor="@color/text_white"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/card_dark"
+                            app:strokeColor="@color/border_dark"
+                            app:strokeWidth="1dp" />
+
+                        <Button
+                            android:id="@+id/btnTestBack"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="⬅️ Click: Back"
+                            android:textColor="@color/text_white"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/card_dark"
+                            app:strokeColor="@color/border_dark"
+                            app:strokeWidth="1dp" />
+                    </LinearLayout>
+
+                    <!-- Tap vs Swipe Tester -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="6dp">
+
+                        <Button
+                            android:id="@+id/btnTestTapCenter"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:text="👆 Test Single Tap"
+                            android:textColor="@color/text_white"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/border_dark" />
+
+                        <Button
+                            android:id="@+id/btnTestSwipeAccept"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="👉 Test Swipe to Accept"
+                            android:textColor="@color/text_white"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/emerald_pass" />
+                    </LinearLayout>
+
+                    <!-- Toggle Shopee Availability Test Button -->
+                    <Button
+                        android:id="@+id/btnTestToggleAvailability"
+                        android:layout_width="match_parent"
+                        android:layout_height="38dp"
+                        android:layout_marginTop="6dp"
+                        android:text="🔄 I-toggle ang Shopee Availability (ON/OFF Test)"
+                        android:textColor="@color/text_white"
+                        android:textSize="10sp"
+                        android:backgroundTint="@color/card_dark"
+                        app:strokeColor="@color/border_dark"
+                        app:strokeWidth="1dp" />
+
+                    <!-- Feedback Status Box -->
+                    <TextView
+                        android:id="@+id/tvTesterStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_input_field"
+                        android:padding="8dp"
+                        android:text="Status: Pindutin ang kahit alin sa buttons sa itaas para subukan ang live click sa phone."
+                        android:textColor="@color/text_muted"
+                        android:textSize="10sp"
+                        android:fontFamily="monospace" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Permission & Huawei Health Check Banner -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:cardCornerRadius="12dp"
+                app:cardBackgroundColor="@color/card_dark">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Mga Kinakailangang Access:"
+                        android:textColor="@color/text_white"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="8dp">
+
+                        <Button
+                            android:id="@+id/btnEnableAccessibility"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="1"
+                            android:text="Accessibility"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/shopee_orange" />
+
+                        <Button
+                            android:id="@+id/btnEnableOverlay"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="Draw Overlay"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/border_dark" />
+
+                        <Button
+                            android:id="@+id/btnHuaweiFix"
+                            android:layout_width="0dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="6dp"
+                            android:text="Huawei Fix"
+                            android:textSize="10sp"
+                            android:backgroundTint="@color/border_dark" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Delivery Performance Counters -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    app:cardCornerRadius="10dp"
+                    app:cardBackgroundColor="@color/card_dark">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="10dp"
+                        android:gravity="center">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="ShopeeFood"
+                            android:textColor="@color/shopee_orange"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvMainCountFood"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="8"
+                            android:textColor="@color/text_white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    app:cardCornerRadius="10dp"
+                    app:cardBackgroundColor="@color/card_dark">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="10dp"
+                        android:gravity="center">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="SPX Parcels"
+                            android:textColor="#38BDF8"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvMainCountSpx"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="4"
+                            android:textColor="@color/text_white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    app:cardCornerRadius="10dp"
+                    app:cardBackgroundColor="@color/card_dark">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="10dp"
+                        android:gravity="center">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Kabuuan"
+                            android:textColor="@color/emerald_pass"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvMainCountTotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="12"
+                            android:textColor="@color/emerald_pass"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
+
+            <!-- Navigation Buttons to Sub-screens -->
+            <Button
+                android:id="@+id/btnOpenGoogleMapsArea"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="16dp"
+                android:text="🗺️ Buksan ang Google Maps Area &amp; Zone Selector"
+                android:textColor="@color/text_white"
+                android:backgroundTint="@color/shopee_orange"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOpenEarnings"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="💰 Tingnan ang Pay-Out Summary &amp; Gas Expense"
+                android:textColor="@color/text_white"
+                android:backgroundTint="@color/card_dark"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

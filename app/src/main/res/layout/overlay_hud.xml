@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/overlayContainer"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_overlay_pill"
+    android:padding="8dp">
+
+    <!-- Header & Status Dot -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <View
+            android:id="@+id/overlayStatusDot"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:background="@drawable/circle_green" />
+
+        <TextView
+            android:id="@+id/overlayTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="SHOPEE SCANNER LIVE"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Live Readout Line -->
+    <TextView
+        android:id="@+id/overlayReadoutText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text="Naka-standby sa Shopee Driver..."
+        android:textColor="#94A3B8"
+        android:textSize="10sp" />
+
+    <!-- Live Target Coordinates Line -->
+    <TextView
+        android:id="@+id/overlayCoordText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="Target: [N/A]"
+        android:textColor="#38BDF8"
+        android:textSize="9sp"
+        android:fontFamily="monospace" />
+
+    <!-- Verdict Banner -->
+    <TextView
+        android:id="@+id/overlayVerdictBanner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Rule: Manila Only | No Tondo"
+        android:textColor="#10B981"
+        android:textSize="9sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

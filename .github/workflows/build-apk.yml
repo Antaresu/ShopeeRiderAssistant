@@ -1,0 +1,62 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK with Gradle
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopeeDriverAssistant-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Create GitHub Release & Upload APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/')
+        with:
+          tag_name: v1.0.0
+          name: "Shopee Driver Assistant v1.0.0 (Huawei Nova 5T Ready)"
+          body: |
+            ### 🚀 Shopee Driver Assistant v1.0.0 (Huawei Nova 5T)
+            
+            Isang Android Assistant app para sa Shopee Food at SPX riders:
+            - **Live Screen Reading & Accurate Auto-Click / Swipe to Accept**
+            - **Zero-Click / Hands-Off Policy** sa Tondo at Oversized packages
+            - **Shopee Availability Live Sync:** Nag-o-off ang auto-click kapag offline sa Shopee drawer
+            - **Honda Click 125 V4 Gas Deduction Calculator** (48 km/L)
+            - **Bagong Icon:** Stylized "A" na may puting background
+            
+            #### 📲 Paano I-install:
+            1. I-download ang **app-debug.apk** sa ibaba sa iyong Huawei Nova 5T.
+            2. Buksan ang **Files** app at i-tap ang APK.
+            3. I-allow ang *Install Unknown Apps*.
+            4. I-ON ang *Accessibility Service* at *Draw Over Other Apps*.
+          files: app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

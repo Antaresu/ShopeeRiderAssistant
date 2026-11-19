@@ -1,0 +1,304 @@
+package com.rider.shopeeassistant.service
+
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Path
+import android.graphics.Rect
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.speech.tts.TextToSpeech
+import android.util.Log
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import com.rider.shopeeassistant.data.DecisionVerdict
+import com.rider.shopeeassistant.data.OrderExtractionResult
+import com.rider.shopeeassistant.data.OrderRuleModel
+import com.rider.shopeeassistant.util.OrderParser
+import java.util.Locale
+
+class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitListener {
+
+    private val TAG = "ShopeeAssistantService"
+    private var tts: TextToSpeech? = null
+    private var isTtsReady = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var currentRules = OrderRuleModel()
+    private var lastClickedOrderSignature = ""
+    private var lastClickTimestamp = 0L
+
+    // Live Shopee Driver Availability State (ON vs OFF)
+    var isShopeeAvailabilityOn: Boolean = true
+
+    // Action Mode: TAP vs SWIPE
+    var isSwipeModeEnabled = true
+    var analyzeDelayMs = 450L
+
+    private val testCommandReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent == null) return
+            val actionType = intent.getStringExtra(EXTRA_TEST_ACTION) ?: return
+
+            when (actionType) {
+                "ACTION_HOME" -> {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    speak("Sinubukan ang Home click.")
+                }
+                "ACTION_BACK" -> {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    speak("Sinubukan ang Back click.")
+                }
+                "ACTION_NOTIFICATIONS" -> {
+                    performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+                    speak("Binuksan ang Notifications.")
+                }
+                "ACTION_TAP_CENTER" -> {
+                    val displayMetrics = resources.displayMetrics
+                    val centerX = displayMetrics.widthPixels / 2f
+                    val centerY = displayMetrics.heightPixels / 2f
+                    dispatchTapGesture(centerX, centerY)
+                    speak("Nagsagawa ng Tap sa gitna ng screen.")
+                }
+                "ACTION_SWIPE_TEST" -> {
+                    val displayMetrics = resources.displayMetrics
+                    val startX = displayMetrics.widthPixels * 0.15f
+                    val endX = displayMetrics.widthPixels * 0.85f
+                    val y = displayMetrics.heightPixels * 0.88f
+                    dispatchSwipeGesture(startX, endX, y, 350)
+                    speak("Nagsagawa ng Swipe to Accept gesture.")
+                }
+                "TOGGLE_AVAILABILITY_TEST" -> {
+                    val newStatus = intent.getBooleanExtra("extra_toggle_value", !isShopeeAvailabilityOn)
+                    updateAvailabilityStatus(newStatus, true)
+                }
+            }
+        }
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Log.d(TAG, "Shopee Accessibility Service Connected and Active!")
+        tts = TextToSpeech(this, this)
+
+        val filter = IntentFilter(ACTION_TEST_GESTURE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(testCommandReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(testCommandReceiver, filter)
+        }
+
+        sendBroadcast(Intent(ACTION_SERVICE_STATUS).putExtra(EXTRA_IS_ACTIVE, true))
+        broadcastAvailabilityStatus()
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts?.setLanguage(Locale("fil", "PH"))
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                tts?.language = Locale.ENGLISH
+            }
+            isTtsReady = true
+            speak("Shopee Driver Assistant ready na.")
+        }
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null) return
+
+        val packageName = event.packageName?.toString() ?: return
+        if (!packageName.contains("shopee") && !packageName.contains("delivery")) {
+            return
+        }
+
+        val rootNode = rootInActiveWindow ?: return
+
+        try {
+            // 1. LIVE CHECK: Basahin kung naka-ON o naka-OFF ang Availability toggle sa Shopee Driver drawer
+            val detectedAvailability = OrderParser.detectAvailabilitySwitch(rootNode)
+            if (detectedAvailability != null && detectedAvailability != isShopeeAvailabilityOn) {
+                updateAvailabilityStatus(detectedAvailability, false)
+            }
+
+            // 2. KUNG NAKA-OFF ANG AVAILABILITY SA SHOPEE: Auto-click is OFF & others
+            if (!isShopeeAvailabilityOn) {
+                val offResult = OrderExtractionResult(
+                    reasonText = "OFF availability - auto click is off and others",
+                    verdict = DecisionVerdict.IGNORED_NOT_AN_ORDER
+                )
+                broadcastLiveReadout(offResult)
+                return
+            }
+
+            // 3. STEP 1: ANALYZE FIRST (Basahin ang buong text, timbang, sukat, address)
+            val extractionResult = OrderParser.scanScreenTree(rootNode, currentRules)
+
+            // I-broadcast ang live status sa Floating Overlay
+            broadcastLiveReadout(extractionResult)
+
+            // 4. STEP 2: VERIFY BAGO PINDUTIN
+            if (extractionResult.acceptButtonNode != null && extractionResult.buttonScreenBounds != null) {
+                handleOrderDecision(extractionResult)
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error scanning screen: ${e.message}", e)
+        }
+    }
+
+    private fun updateAvailabilityStatus(isOn: Boolean, isFromManualTest: Boolean) {
+        isShopeeAvailabilityOn = isOn
+        broadcastAvailabilityStatus()
+
+        if (isOn) {
+            speak("Shopee availability is ON. Auto click and scanning active.")
+        } else {
+            speak("Shopee availability is OFF. Auto click is paused.")
+        }
+        Log.i(TAG, "Shopee Availability updated to: ${if (isOn) "ON" else "OFF"}")
+    }
+
+    private fun broadcastAvailabilityStatus() {
+        val intent = Intent(ACTION_AVAILABILITY_STATUS).apply {
+            putExtra(EXTRA_IS_AVAILABILITY_ON, isShopeeAvailabilityOn)
+        }
+        sendBroadcast(intent)
+    }
+
+    private fun handleOrderDecision(result: OrderExtractionResult) {
+        val now = System.currentTimeMillis()
+        val signature = "${result.dropoffAddress}_${result.farePhp}_${result.weightKg}"
+
+        // Anti-spam debounce
+        if (signature == lastClickedOrderSignature && (now - lastClickTimestamp) < 10000) {
+            return
+        }
+
+        // DOUBLE-CHECK: Kung naka-off ang availability, wag mag-click
+        if (!isShopeeAvailabilityOn) {
+            Log.w(TAG, "Booking detected but Shopee Availability is OFF. Auto-click blocked.")
+            return
+        }
+
+        when (result.verdict) {
+            DecisionVerdict.AUTO_ACCEPT -> {
+                lastClickedOrderSignature = signature
+                lastClickTimestamp = now
+
+                speak(result.reasonText)
+
+                mainHandler.postDelayed({
+                    if (!isShopeeAvailabilityOn) return@postDelayed
+
+                    val bounds = result.buttonScreenBounds ?: return@postDelayed
+                    val buttonText = result.acceptButtonNode?.text?.toString()?.lowercase() ?: ""
+                    val requiresSwipe = isSwipeModeEnabled || buttonText.contains("swipe") || buttonText.contains("slide")
+
+                    if (requiresSwipe) {
+                        val startX = bounds.left + (bounds.width() * 0.15f)
+                        val endX = bounds.right - (bounds.width() * 0.15f)
+                        val centerY = bounds.centerY().toFloat()
+                        dispatchSwipeGesture(startX, endX, centerY, 350)
+                    } else {
+                        executeAccurateClick(result.acceptButtonNode, bounds.centerX(), bounds.centerY())
+                    }
+                }, analyzeDelayMs)
+            }
+
+            DecisionVerdict.ZERO_CLICK_BANNED_AREA,
+            DecisionVerdict.ZERO_CLICK_OVERSIZED -> {
+                lastClickedOrderSignature = signature
+                lastClickTimestamp = now
+                speak(result.reasonText)
+                Log.i(TAG, "ZERO-CLICK POLICY ACTIVATED: ${result.reasonText}. Letting order timeout.")
+            }
+
+            DecisionVerdict.IGNORED_NOT_AN_ORDER -> {}
+        }
+    }
+
+    private fun executeAccurateClick(node: AccessibilityNodeInfo?, x: Int, y: Int) {
+        var clicked = false
+        if (node != null && node.isClickable) {
+            clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        }
+        if (!clicked) {
+            dispatchTapGesture(x.toFloat(), y.toFloat())
+        }
+    }
+
+    private fun dispatchTapGesture(x: Float, y: Float) {
+        val clickPath = Path().apply { moveTo(x, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(clickPath, 0, 50))
+            .build()
+
+        dispatchGesture(gesture, null, null)
+    }
+
+    private fun dispatchSwipeGesture(startX: Float, endX: Float, y: Float, durationMs: Long) {
+        val swipePath = Path().apply {
+            moveTo(startX, y)
+            lineTo(endX, y)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(swipePath, 0, durationMs))
+            .build()
+
+        dispatchGesture(gesture, null, null)
+    }
+
+    private fun broadcastLiveReadout(result: OrderExtractionResult) {
+        val intent = Intent(ACTION_LIVE_EXTRACTION).apply {
+            putExtra(EXTRA_FARE, result.farePhp ?: 0f)
+            putExtra(EXTRA_WEIGHT, result.weightKg ?: 0f)
+            putExtra(EXTRA_DROPOFF, result.dropoffAddress)
+            putExtra(EXTRA_CLICK_X, result.clickX ?: -1)
+            putExtra(EXTRA_CLICK_Y, result.clickY ?: -1)
+            putExtra(EXTRA_VERDICT, result.verdict.name)
+            putExtra(EXTRA_REASON, result.reasonText)
+            putExtra(EXTRA_IS_AVAILABILITY_ON, isShopeeAvailabilityOn)
+        }
+        sendBroadcast(intent)
+    }
+
+    private fun speak(message: String) {
+        if (isTtsReady && currentRules.voiceAlertsEnabled) {
+            tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "shopee_voice_id")
+        }
+    }
+
+    override fun onInterrupt() {
+        Log.w(TAG, "Service Interrupted")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(testCommandReceiver)
+        tts?.stop()
+        tts?.shutdown()
+        sendBroadcast(Intent(ACTION_SERVICE_STATUS).putExtra(EXTRA_IS_ACTIVE, false))
+    }
+
+    companion object {
+        const val ACTION_SERVICE_STATUS = "com.rider.shopeeassistant.ACTION_SERVICE_STATUS"
+        const val ACTION_LIVE_EXTRACTION = "com.rider.shopeeassistant.ACTION_LIVE_EXTRACTION"
+        const val ACTION_AVAILABILITY_STATUS = "com.rider.shopeeassistant.ACTION_AVAILABILITY_STATUS"
+        const val ACTION_TEST_GESTURE = "com.rider.shopeeassistant.ACTION_TEST_GESTURE"
+        const val EXTRA_TEST_ACTION = "extra_test_action"
+
+        const val EXTRA_IS_ACTIVE = "extra_is_active"
+        const val EXTRA_IS_AVAILABILITY_ON = "extra_is_availability_on"
+        const val EXTRA_FARE = "extra_fare"
+        const val EXTRA_WEIGHT = "extra_weight"
+        const val EXTRA_DROPOFF = "extra_dropoff"
+        const val EXTRA_CLICK_X = "extra_click_x"
+        const val EXTRA_CLICK_Y = "extra_click_y"
+        const val EXTRA_VERDICT = "extra_verdict"
+        const val EXTRA_REASON = "extra_reason"
+    }
+}

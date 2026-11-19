@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Shopee Rider Assistant</string>
+    <string name="accessibility_service_description">Binabasa ang screen ng Shopee Driver nang live para sa timbang, sukat, at destinasyon. Nag-a-auto click sa Accept button kapag pasok sa rules, at Zero-Click (hands-off) kapag Tondo o oversized para hindi mabawasan ang Acceptance Rate mo.</string>
+    <string name="enable_accessibility">I-enable ang Accessibility Service</string>
+    <string name="enable_overlay">I-enable ang Floating Overlay</string>
+    <string name="enable_huawei_optimizations">Huawei Nova 5T Battery Fix (Manage Manually)</string>
+</resources>
