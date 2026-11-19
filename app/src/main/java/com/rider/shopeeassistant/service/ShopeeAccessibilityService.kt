@@ -32,8 +32,11 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
     private var lastClickedOrderSignature = ""
     private var lastClickTimestamp = 0L
 
-    // Live Shopee Driver Availability State (ON vs OFF)
-    var isShopeeAvailabilityOn: Boolean = true
+    // Live Shopee Driver Availability State (ON vs OFF) - Defaults to OFF as shown in driver screenshot
+    var isShopeeAvailabilityOn: Boolean = false
+
+    // Target App Package (Can be selected/changed from UI)
+    var targetPackageName: String = "com.shopee.delivery.driver"
 
     // Action Mode: TAP vs SWIPE
     var isSwipeModeEnabled = true
@@ -45,36 +48,51 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
             val actionType = intent.getStringExtra(EXTRA_TEST_ACTION) ?: return
 
             when (actionType) {
-                "ACTION_HOME" -> {
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    speak("Sinubukan ang Home click.")
+                "ACTION_TEST_AVAILABILITY_CLICK" -> {
+                    val root = rootInActiveWindow
+                    val clicked = OrderParser.clickAvailabilitySwitch(root)
+                    val newStatus = !isShopeeAvailabilityOn
+                    updateAvailabilityStatus(newStatus, true)
+                    broadcastLog("[TEST CLICK] Shopee Availability switch toggle: ${if (clicked) "Click na-dispatch sa screen" else "Simulated toggle to ${if (newStatus) "ON" else "OFF"}"}")
+                    speak("Sinubukan ang Availability click.")
                 }
-                "ACTION_BACK" -> {
-                    performGlobalAction(GLOBAL_ACTION_BACK)
-                    speak("Sinubukan ang Back click.")
+                "ACTION_TEST_INCENTIVES_CLICK" -> {
+                    val root = rootInActiveWindow
+                    val clicked = OrderParser.clickNodeWithText(root, listOf("incentives", "instant s-points", "s-points"))
+                    broadcastLog("[TEST CLICK] Shopee Incentives menu click: ${if (clicked) "Na-click ang Incentives" else "Walang Incentives text sa active screen"}")
+                    speak(if (clicked) "Na-click ang Incentives." else "Sinubukan ang Incentives menu.")
                 }
-                "ACTION_NOTIFICATIONS" -> {
-                    performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
-                    speak("Binuksan ang Notifications.")
+                "ACTION_TEST_SETTINGS_CLICK" -> {
+                    val root = rootInActiveWindow
+                    val clicked = OrderParser.clickNodeWithText(root, listOf("settings", "setting"))
+                    broadcastLog("[TEST CLICK] Shopee Settings menu click: ${if (clicked) "Na-click ang Settings" else "Walang Settings text sa screen"}")
+                    speak(if (clicked) "Na-click ang Settings." else "Sinubukan ang Settings menu.")
                 }
-                "ACTION_TAP_CENTER" -> {
+                "ACTION_TEST_ACCEPT_TAP" -> {
                     val displayMetrics = resources.displayMetrics
                     val centerX = displayMetrics.widthPixels / 2f
-                    val centerY = displayMetrics.heightPixels / 2f
+                    val centerY = displayMetrics.heightPixels * 0.88f
                     dispatchTapGesture(centerX, centerY)
-                    speak("Nagsagawa ng Tap sa gitna ng screen.")
+                    broadcastLog("[TEST TAP] Coordinate tap sa Accept button position [X=${centerX.toInt()}, Y=${centerY.toInt()}]")
+                    speak("Sinubukan ang tap sa Accept button.")
                 }
-                "ACTION_SWIPE_TEST" -> {
+                "ACTION_TEST_SWIPE_ACCEPT" -> {
                     val displayMetrics = resources.displayMetrics
                     val startX = displayMetrics.widthPixels * 0.15f
                     val endX = displayMetrics.widthPixels * 0.85f
                     val y = displayMetrics.heightPixels * 0.88f
                     dispatchSwipeGesture(startX, endX, y, 350)
-                    speak("Nagsagawa ng Swipe to Accept gesture.")
+                    broadcastLog("[TEST GESTURE] Horizontal swipe drag to accept [X1=${startX.toInt()} -> X2=${endX.toInt()}, Y=${y.toInt()}]")
+                    speak("Sinubukan ang Swipe to Accept gesture.")
                 }
                 "TOGGLE_AVAILABILITY_TEST" -> {
                     val newStatus = intent.getBooleanExtra("extra_toggle_value", !isShopeeAvailabilityOn)
                     updateAvailabilityStatus(newStatus, true)
+                }
+                "SET_TARGET_APP" -> {
+                    val newPkg = intent.getStringExtra("extra_package_name") ?: "com.shopee.delivery.driver"
+                    targetPackageName = newPkg
+                    broadcastLog("[APP BIND] Target App pinalitan sa: $targetPackageName")
                 }
             }
         }
@@ -190,6 +208,7 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
                 lastClickTimestamp = now
 
                 speak(result.reasonText)
+                broadcastLog("[ACTION] ✅ PASOK SA RULES: Manila & Kasya sa 32L bag! Auto-accept na-dispatch.")
 
                 mainHandler.postDelayed({
                     if (!isShopeeAvailabilityOn) return@postDelayed
@@ -203,22 +222,40 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
                         val endX = bounds.right - (bounds.width() * 0.15f)
                         val centerY = bounds.centerY().toFloat()
                         dispatchSwipeGesture(startX, endX, centerY, 350)
+                        broadcastLog("[GESTURE] Swipe to Accept na-execute sa Shopee screen [${startX.toInt()} -> ${endX.toInt()}, Y=${centerY.toInt()}].")
                     } else {
                         executeAccurateClick(result.acceptButtonNode, bounds.centerX(), bounds.centerY())
+                        broadcastLog("[CLICK] Coordinate click na-execute sa Accept button [X=${bounds.centerX()}, Y=${bounds.centerY()}].")
                     }
                 }, analyzeDelayMs)
             }
 
-            DecisionVerdict.ZERO_CLICK_BANNED_AREA,
+            DecisionVerdict.ZERO_CLICK_BANNED_AREA -> {
+                lastClickedOrderSignature = signature
+                lastClickTimestamp = now
+                speak(result.reasonText)
+                broadcastLog("[ACTION] 🚫 ZERO-CLICK POLICY: Papuntang Tondo! Walang pipindutin at walang iki-click.")
+                Log.i(TAG, "ZERO-CLICK POLICY ACTIVATED: Banned Area Tondo.")
+            }
+
             DecisionVerdict.ZERO_CLICK_OVERSIZED -> {
                 lastClickedOrderSignature = signature
                 lastClickTimestamp = now
                 speak(result.reasonText)
-                Log.i(TAG, "ZERO-CLICK POLICY ACTIVATED: ${result.reasonText}. Letting order timeout.")
+                broadcastLog("[ACTION] ⚠️ ZERO-CLICK POLICY: Masyadong malaki/mabigat (>15kg o >32L bag)! Walang pipindutin.")
+                Log.i(TAG, "ZERO-CLICK POLICY ACTIVATED: Oversized order.")
             }
 
             DecisionVerdict.IGNORED_NOT_AN_ORDER -> {}
         }
+    }
+
+    fun broadcastLog(message: String) {
+        val intent = Intent(ACTION_APP_LOG).apply {
+            putExtra(EXTRA_LOG_LINE, message)
+        }
+        sendBroadcast(intent)
+        Log.d(TAG, message)
     }
 
     private fun executeAccurateClick(node: AccessibilityNodeInfo?, x: Int, y: Int) {
@@ -289,6 +326,8 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         const val ACTION_LIVE_EXTRACTION = "com.rider.shopeeassistant.ACTION_LIVE_EXTRACTION"
         const val ACTION_AVAILABILITY_STATUS = "com.rider.shopeeassistant.ACTION_AVAILABILITY_STATUS"
         const val ACTION_TEST_GESTURE = "com.rider.shopeeassistant.ACTION_TEST_GESTURE"
+        const val ACTION_APP_LOG = "com.rider.shopeeassistant.ACTION_APP_LOG"
+        const val EXTRA_LOG_LINE = "extra_log_line"
         const val EXTRA_TEST_ACTION = "extra_test_action"
 
         const val EXTRA_IS_ACTIVE = "extra_is_active"

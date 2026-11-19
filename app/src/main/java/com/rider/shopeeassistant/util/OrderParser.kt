@@ -54,6 +54,71 @@ object OrderParser {
     }
 
     /**
+     * Tries to find and click the Availability toggle switch in the active screen.
+     */
+    fun clickAvailabilitySwitch(rootNode: AccessibilityNodeInfo?): Boolean {
+        if (rootNode == null) return false
+        var clicked = false
+
+        fun searchAndClick(node: AccessibilityNodeInfo?) {
+            if (node == null || clicked) return
+            val text = node.text?.toString()?.trim() ?: ""
+            if (text.equals("Availability", ignoreCase = true)) {
+                val parent = node.parent
+                if (parent != null) {
+                    for (i in 0 until parent.childCount) {
+                        val child = parent.getChild(i)
+                        if (child != null) {
+                            val className = child.className?.toString() ?: ""
+                            if (child.isClickable || child.isCheckable || className.contains("Switch") || className.contains("CompoundButton")) {
+                                clicked = child.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                                if (clicked) return
+                            }
+                        }
+                    }
+                }
+            }
+            for (i in 0 until node.childCount) {
+                searchAndClick(node.getChild(i))
+            }
+        }
+
+        searchAndClick(rootNode)
+        return clicked
+    }
+
+    /**
+     * Finds and clicks a node containing any of the given keywords (e.g. "Incentives", "Settings").
+     */
+    fun clickNodeWithText(rootNode: AccessibilityNodeInfo?, keywords: List<String>): Boolean {
+        if (rootNode == null) return false
+        var clicked = false
+
+        fun searchAndClick(node: AccessibilityNodeInfo?) {
+            if (node == null || clicked) return
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim().lowercase()
+            for (kw in keywords) {
+                if (text.contains(kw.lowercase())) {
+                    var target: AccessibilityNodeInfo? = node
+                    while (target != null && !target.isClickable) {
+                        target = target.parent
+                    }
+                    if (target != null && target.isClickable) {
+                        clicked = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        if (clicked) return
+                    }
+                }
+            }
+            for (i in 0 until node.childCount) {
+                searchAndClick(node.getChild(i))
+            }
+        }
+
+        searchAndClick(rootNode)
+        return clicked
+    }
+
+    /**
      * Recursively collects all text nodes and potential Accept buttons from the active screen tree.
      */
     fun scanScreenTree(

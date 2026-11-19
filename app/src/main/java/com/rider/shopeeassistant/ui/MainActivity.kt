@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -20,39 +21,74 @@ import com.rider.shopeeassistant.R
 import com.rider.shopeeassistant.service.FloatingOverlayService
 import com.rider.shopeeassistant.service.ShopeeAccessibilityService
 import com.rider.shopeeassistant.util.HuaweiSettingsHelper
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
+    // Master Switch & Subtitle
     private lateinit var switchMaster: SwitchMaterial
-    private lateinit var btnAccessibility: Button
-    private lateinit var btnOverlay: Button
-    private lateinit var btnHuawei: Button
-    private lateinit var btnOpenMap: Button
-    private lateinit var btnOpenEarnings: Button
-    private lateinit var tvFood: TextView
-    private lateinit var tvSpx: TextView
-    private lateinit var tvTotal: TextView
+    private lateinit var tvMasterStatusSubtitle: TextView
+
+    // App Selector Views
+    private lateinit var tvSelectedAppName: TextView
+    private lateinit var tvSelectedAppPackage: TextView
+    private lateinit var btnSelectApp: Button
+    private lateinit var btnLaunchShopeeApp: Button
+    private var currentTargetPackage = "com.shopee.delivery.driver"
 
     // Live Availability Sync Views
     private lateinit var dotAvailabilitySync: View
     private lateinit var tvAvailabilitySyncText: TextView
     private lateinit var tvAvailabilitySubNotice: TextView
     private lateinit var btnTestToggleAvailability: Button
-    private var isSimulatedAvailabilityOn = true
+    private var isSimulatedAvailabilityOn = false
 
-    // Live Gesture / Click Tester Views
-    private lateinit var btnTestHome: Button
-    private lateinit var btnTestNotifications: Button
-    private lateinit var btnTestBack: Button
-    private lateinit var btnTestTapCenter: Button
+    // Targeted Shopee Menu & Gesture Tester Views (No Home Key exit)
+    private lateinit var btnTestAvailabilityClick: Button
+    private lateinit var btnTestIncentivesClick: Button
+    private lateinit var btnTestSettingsClick: Button
+    private lateinit var btnTestTapAccept: Button
     private lateinit var btnTestSwipeAccept: Button
     private lateinit var tvTesterStatus: TextView
 
-    private val availabilityReceiver = object : BroadcastReceiver() {
+    // Location & Route Filter Rules
+    private lateinit var btnRuleManilaAllow: Button
+    private lateinit var btnRuleTondoBan: Button
+
+    // Google Maps Navigation
+    private lateinit var btnLaunchGoogleMaps: Button
+    private lateinit var btnOpenMapArea: Button
+
+    // Live Logs Console
+    private lateinit var tvConsoleLogs: TextView
+    private lateinit var btnClearLogs: Button
+    private lateinit var btnSimulateSampleOrder: Button
+
+    // Permissions & Other
+    private lateinit var btnAccessibility: Button
+    private lateinit var btnOverlay: Button
+    private lateinit var btnHuawei: Button
+    private lateinit var btnOpenEarnings: Button
+
+    private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+    private val logReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
-            val isOn = intent.getBooleanExtra(ShopeeAccessibilityService.EXTRA_IS_AVAILABILITY_ON, true)
-            updateAvailabilityUI(isOn)
+            when (intent.action) {
+                ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS -> {
+                    val isOn = intent.getBooleanExtra(ShopeeAccessibilityService.EXTRA_IS_AVAILABILITY_ON, false)
+                    updateAvailabilityUI(isOn)
+                }
+                ShopeeAccessibilityService.ACTION_APP_LOG -> {
+                    val logLine = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_LOG_LINE)
+                    if (!logLine.isNullOrEmpty()) {
+                        appendLog(logLine)
+                    }
+                }
+            }
         }
     }
 
@@ -70,74 +106,196 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        switchMaster = findViewById(R.id.switchMasterActive)
-        btnAccessibility = findViewById(R.id.btnEnableAccessibility)
-        btnOverlay = findViewById(R.id.btnEnableOverlay)
-        btnHuawei = findViewById(R.id.btnHuaweiFix)
-        btnOpenMap = findViewById(R.id.btnOpenGoogleMapsArea)
-        btnOpenEarnings = findViewById(R.id.btnOpenEarnings)
-        tvFood = findViewById(R.id.tvMainCountFood)
-        tvSpx = findViewById(R.id.tvMainCountSpx)
-        tvTotal = findViewById(R.id.tvMainCountTotal)
+        bindViews()
+        setupListeners()
 
-        // Bind Availability Views
+        // Register Log & Availability Broadcast Receivers
+        val filter = IntentFilter().apply {
+            addAction(ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS)
+            addAction(ShopeeAccessibilityService.ACTION_APP_LOG)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(logReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(logReceiver, filter)
+        }
+
+        // Initialize with default state: Master OFF, Availability OFF
+        updateMasterStatusUI(false)
+        updateAvailabilityUI(false)
+    }
+
+    private fun bindViews() {
+        switchMaster = findViewById(R.id.switchMasterActive)
+        tvMasterStatusSubtitle = findViewById(R.id.tvMasterStatusSubtitle)
+
+        tvSelectedAppName = findViewById(R.id.tvSelectedAppName)
+        tvSelectedAppPackage = findViewById(R.id.tvSelectedAppPackage)
+        btnSelectApp = findViewById(R.id.btnSelectApp)
+        btnLaunchShopeeApp = findViewById(R.id.btnLaunchShopeeApp)
+
         dotAvailabilitySync = findViewById(R.id.dotAvailabilitySync)
         tvAvailabilitySyncText = findViewById(R.id.tvAvailabilitySyncText)
         tvAvailabilitySubNotice = findViewById(R.id.tvAvailabilitySubNotice)
         btnTestToggleAvailability = findViewById(R.id.btnTestToggleAvailability)
 
-        // Bind Live Tester Buttons
-        btnTestHome = findViewById(R.id.btnTestHome)
-        btnTestNotifications = findViewById(R.id.btnTestNotifications)
-        btnTestBack = findViewById(R.id.btnTestBack)
-        btnTestTapCenter = findViewById(R.id.btnTestTapCenter)
+        btnTestAvailabilityClick = findViewById(R.id.btnTestAvailabilityClick)
+        btnTestIncentivesClick = findViewById(R.id.btnTestIncentivesClick)
+        btnTestSettingsClick = findViewById(R.id.btnTestSettingsClick)
+        btnTestTapAccept = findViewById(R.id.btnTestTapAccept)
         btnTestSwipeAccept = findViewById(R.id.btnTestSwipeAccept)
         tvTesterStatus = findViewById(R.id.tvTesterStatus)
 
-        setupListeners()
+        btnRuleManilaAllow = findViewById(R.id.btnRuleManilaAllow)
+        btnRuleTondoBan = findViewById(R.id.btnRuleTondoBan)
 
-        val filter = IntentFilter(ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(availabilityReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(availabilityReceiver, filter)
-        }
-    }
+        btnLaunchGoogleMaps = findViewById(R.id.btnLaunchGoogleMaps)
+        btnOpenMapArea = findViewById(R.id.btnOpenGoogleMapsArea)
 
-    private fun updateAvailabilityUI(isOn: Boolean) {
-        isSimulatedAvailabilityOn = isOn
-        if (isOn) {
-            dotAvailabilitySync.setBackgroundResource(R.drawable.circle_green)
-            tvAvailabilitySyncText.text = "🟢 on availability - active scanning & ready"
-            tvAvailabilitySyncText.setTextColor(0xFF10B981.toInt())
-            tvAvailabilitySubNotice.text = "Naka-ON ang availability sa Shopee. Handa nang mag-auto-accept kung pasok sa rules."
-        } else {
-            dotAvailabilitySync.setBackgroundResource(R.drawable.circle_red)
-            tvAvailabilitySyncText.text = "🔴 off availability - auto click is off and others"
-            tvAvailabilitySyncText.setTextColor(0xFFEF4444.toInt())
-            tvAvailabilitySubNotice.text = "Naka-OFF ang availability sa Shopee Driver drawer. Naka-pause ang auto-click kahit naka-on ang assistant."
-        }
+        tvConsoleLogs = findViewById(R.id.tvConsoleLogs)
+        btnClearLogs = findViewById(R.id.btnClearLogs)
+        btnSimulateSampleOrder = findViewById(R.id.btnSimulateSampleOrder)
+
+        btnAccessibility = findViewById(R.id.btnEnableAccessibility)
+        btnOverlay = findViewById(R.id.btnEnableOverlay)
+        btnHuawei = findViewById(R.id.btnHuaweiFix)
+        btnOpenEarnings = findViewById(R.id.btnOpenEarnings)
     }
 
     private fun setupListeners() {
-        // Master Active Toggle
+        // 1. Master Active Switch (Defaults to OFF)
         switchMaster.setOnCheckedChangeListener { _, isChecked ->
+            updateMasterStatusUI(isChecked)
             if (isChecked) {
                 if (checkAndRequestOverlayPermission()) {
                     startOverlayService()
-                    Toast.makeText(this, "Assistant LIVE! Naka-standby na para sa Shopee Driver.", Toast.LENGTH_SHORT).show()
+                    appendLog("[MASTER SWITCH] Naka-ON na ang Assistant. Naka-standby sa Shopee Driver.")
+                    Toast.makeText(this, "Assistant LIVE! Handa na sa biyahe.", Toast.LENGTH_SHORT).show()
                 } else {
                     switchMaster.isChecked = false
                 }
             } else {
                 stopOverlayService()
-                Toast.makeText(this, "Assistant Naka-PAUSE.", Toast.LENGTH_SHORT).show()
+                appendLog("[MASTER SWITCH] Naka-OFF ang Assistant. Walang gagawing pagkilos.")
+                Toast.makeText(this, "Assistant Naka-PAUSE / OFF.", Toast.LENGTH_SHORT).show()
             }
         }
 
+        // 2. Select Target App Dialog
+        btnSelectApp.setOnClickListener {
+            val appOptions = arrayOf(
+                "Shopee Driver (ShopeeFood & SPX) - com.shopee.delivery.driver",
+                "ShopeeFood Driver (Alternative) - com.shopee.food.driver",
+                "SPX Express Courier - com.spx.rider"
+            )
+            AlertDialog.Builder(this)
+                .setTitle("Piliin ang Target Application")
+                .setItems(appOptions) { _, which ->
+                    when (which) {
+                        0 -> setTargetApp("Shopee Driver (ShopeeFood / SPX)", "com.shopee.delivery.driver")
+                        1 -> setTargetApp("ShopeeFood Driver", "com.shopee.food.driver")
+                        2 -> setTargetApp("SPX Express Courier", "com.spx.rider")
+                    }
+                }
+                .setNegativeButton("Kanselahin", null)
+                .show()
+        }
+
+        // Launch Shopee Driver App Directly
+        btnLaunchShopeeApp.setOnClickListener {
+            val launchIntent = packageManager.getLaunchIntentForPackage(currentTargetPackage)
+            if (launchIntent != null) {
+                appendLog("[APP LAUNCH] Binubuksan ang $currentTargetPackage...")
+                startActivity(launchIntent)
+            } else {
+                Toast.makeText(this, "Hindi pa naka-install ang $currentTargetPackage sa phone na ito.", Toast.LENGTH_LONG).show()
+                appendLog("[APP LAUNCH] Package $currentTargetPackage hindi nahanap sa local device.")
+            }
+        }
+
+        // 3. Shopee Availability Toggle
+        btnTestToggleAvailability.setOnClickListener {
+            val newStatus = !isSimulatedAvailabilityOn
+            updateAvailabilityUI(newStatus)
+            sendGestureTestCommand("TOGGLE_AVAILABILITY_TEST", newStatus)
+            Toast.makeText(this, "Shopee Availability: ${if (newStatus) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+        }
+
+        // 4. Targeted Tester Buttons (Shopee Menus & Accept Actions - NO HOME EXIT)
+        btnTestAvailabilityClick.setOnClickListener {
+            sendGestureTestCommand("ACTION_TEST_AVAILABILITY_CLICK")
+            tvTesterStatus.text = "Status: [AVAILABILITY TOGGLE CLICK] Na-dispatch sa Shopee Driver drawer!"
+            appendLog("[TEST] Sinubukan ang click sa Shopee Availability toggle.")
+        }
+
+        btnTestIncentivesClick.setOnClickListener {
+            sendGestureTestCommand("ACTION_TEST_INCENTIVES_CLICK")
+            tvTesterStatus.text = "Status: [INCENTIVES MENU CLICK] Na-dispatch sa S-Points menu item!"
+            appendLog("[TEST] Sinubukan ang click sa Incentives menu.")
+        }
+
+        btnTestSettingsClick.setOnClickListener {
+            sendGestureTestCommand("ACTION_TEST_SETTINGS_CLICK")
+            tvTesterStatus.text = "Status: [SETTINGS CLICK] Na-dispatch sa Settings menu item!"
+            appendLog("[TEST] Sinubukan ang click sa Settings menu.")
+        }
+
+        btnTestTapAccept.setOnClickListener {
+            sendGestureTestCommand("ACTION_TEST_ACCEPT_TAP")
+            tvTesterStatus.text = "Status: [ACCURATE TAP] Coordinate tap sa Accept button position!"
+            appendLog("[TEST] Coordinate tap sa Accept button coordinates.")
+        }
+
+        btnTestSwipeAccept.setOnClickListener {
+            sendGestureTestCommand("ACTION_TEST_SWIPE_ACCEPT")
+            tvTesterStatus.text = "Status: [SWIPE TO ACCEPT] Horizontal drag gesture (350ms) na-execute!"
+            appendLog("[TEST] Swipe to Accept horizontal drag na-execute.")
+        }
+
+        // 5. Location Rules Actions
+        btnRuleManilaAllow.setOnClickListener {
+            Toast.makeText(this, "Rule Active: Manila to Manila ALLOWED & AUTO-ACCEPT!", Toast.LENGTH_SHORT).show()
+            appendLog("[RULE UPDATED] ✅ Manila to Manila: ALLOWED (Auto-Accept: ON).")
+        }
+
+        btnRuleTondoBan.setOnClickListener {
+            Toast.makeText(this, "Rule Active: Manila to Tondo BANNED (Zero-Click Active)!", Toast.LENGTH_SHORT).show()
+            appendLog("[RULE UPDATED] 🚫 Manila to Tondo: BANNED (Zero-Click: Hahayaang lumipas nang kusa).")
+        }
+
+        // 6. Google Maps Direct Navigation
+        btnLaunchGoogleMaps.setOnClickListener {
+            val destination = "Manila, Philippines"
+            val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(destination)}")
+            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
+                setPackage("com.google.android.apps.maps")
+            }
+            try {
+                startActivity(mapIntent)
+                appendLog("[GOOGLE MAPS] Ipinasa ang ruta papuntang $destination sa Google Maps.")
+            } catch (e: Exception) {
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=${Uri.encode(destination)}"))
+                startActivity(browserIntent)
+                appendLog("[GOOGLE MAPS] Binuksan ang ruta sa Maps browser.")
+            }
+        }
+
+        btnOpenMapArea.setOnClickListener {
+            startActivity(Intent(this, AreaSelectorActivity::class.java))
+        }
+
+        // 7. Logs Controls
+        btnClearLogs.setOnClickListener {
+            tvConsoleLogs.text = "[${timeFormat.format(Date())}] [LOGS CLEARED] Malinis na ang log stream.\n"
+        }
+
+        btnSimulateSampleOrder.setOnClickListener {
+            simulateSampleOrderEvaluation()
+        }
+
+        // 8. Permissions & Earnings
         btnAccessibility.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            startActivity(intent)
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             Toast.makeText(this, "Piliin ang 'Shopee Driver Assistant' at i-ON ang service.", Toast.LENGTH_LONG).show()
         }
 
@@ -149,73 +307,94 @@ class MainActivity : AppCompatActivity() {
             HuaweiSettingsHelper.openHuaweiAppLaunchSettings(this)
         }
 
-        btnOpenMap.setOnClickListener {
-            startActivity(Intent(this, AreaSelectorActivity::class.java))
-        }
-
         btnOpenEarnings.setOnClickListener {
             startActivity(Intent(this, EarningsTrackerActivity::class.java))
         }
+    }
 
-        // Toggle Availability Test Button
-        btnTestToggleAvailability.setOnClickListener {
-            val newStatus = !isSimulatedAvailabilityOn
-            updateAvailabilityUI(newStatus)
+    private fun setTargetApp(name: String, packageName: String) {
+        currentTargetPackage = packageName
+        tvSelectedAppName.text = name
+        tvSelectedAppPackage.text = packageName
+        appendLog("[APP SELECTOR] Target package binded to: $packageName ($name)")
 
-            val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
-                putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, "TOGGLE_AVAILABILITY_TEST")
-                putExtra("extra_toggle_value", newStatus)
-            }
-            sendBroadcast(intent)
-            Toast.makeText(this, "Availability changed: ${if (newStatus) "ON" else "OFF"}", Toast.LENGTH_SHORT).show()
+        val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
+            putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, "SET_TARGET_APP")
+            putExtra("extra_package_name", packageName)
         }
+        sendBroadcast(intent)
+        Toast.makeText(this, "Nakatali na ang assistant sa $name!", Toast.LENGTH_SHORT).show()
+    }
 
-        // Live Gesture Testers
-        btnTestHome.setOnClickListener {
-            sendGestureTestCommand("ACTION_HOME")
-            tvTesterStatus.text = "Status: [GLOBAL_ACTION_HOME] Ipinadala sa Accessibility Service!"
-        }
-
-        btnTestNotifications.setOnClickListener {
-            sendGestureTestCommand("ACTION_NOTIFICATIONS")
-            tvTesterStatus.text = "Status: [GLOBAL_ACTION_NOTIFICATIONS] Ibinaba ang Notification Shade."
-        }
-
-        btnTestBack.setOnClickListener {
-            sendGestureTestCommand("ACTION_BACK")
-            tvTesterStatus.text = "Status: [GLOBAL_ACTION_BACK] Ipinadala ang Back key press."
-        }
-
-        btnTestTapCenter.setOnClickListener {
-            sendGestureTestCommand("ACTION_TAP_CENTER")
-            tvTesterStatus.text = "Status: [SINGLE TAP] Coordinate tap sa gitna ng screen."
-        }
-
-        btnTestSwipeAccept.setOnClickListener {
-            sendGestureTestCommand("ACTION_SWIPE_TEST")
-            tvTesterStatus.text = "Status: [SWIPE TO ACCEPT] Horizontal drag gesture (kaliwa pakanan)."
+    private fun updateMasterStatusUI(isActive: Boolean) {
+        if (isActive) {
+            tvMasterStatusSubtitle.text = "🟢 SCANNING ACTIVE • Nova 5T Ready"
+            tvMasterStatusSubtitle.setTextColor(0xFF10B981.toInt())
+        } else {
+            tvMasterStatusSubtitle.text = "🔴 NAKA-OFF / STANDBY • Nova 5T Ready"
+            tvMasterStatusSubtitle.setTextColor(0xFF94A3B8.toInt())
         }
     }
 
-    private fun sendGestureTestCommand(actionName: String) {
+    private fun updateAvailabilityUI(isOn: Boolean) {
+        isSimulatedAvailabilityOn = isOn
+        if (isOn) {
+            dotAvailabilitySync.setBackgroundResource(R.drawable.circle_green)
+            tvAvailabilitySyncText.text = "🟢 on availability - active scanning & ready"
+            tvAvailabilitySyncText.setTextColor(0xFF10B981.toInt())
+            tvAvailabilitySubNotice.text = "Naka-ON ang availability sa Shopee Driver. Handa nang mag-auto-accept kung pasok sa rules."
+            appendLog("[AVAILABILITY] Shopee Driver: 🟢 ON -> Handa na para sa auto-accept.")
+        } else {
+            dotAvailabilitySync.setBackgroundResource(R.drawable.circle_red)
+            tvAvailabilitySyncText.text = "🔴 off availability - auto click is off and others"
+            tvAvailabilitySyncText.setTextColor(0xFFEF4444.toInt())
+            tvAvailabilitySubNotice.text = "Naka-OFF ang availability sa Shopee Driver drawer. Naka-pause ang auto-click kahit naka-on ang assistant."
+            appendLog("[AVAILABILITY] Shopee Driver: 🔴 OFF -> Auto-click is OFF and others.")
+        }
+    }
+
+    private fun appendLog(message: String) {
+        val timestamp = timeFormat.format(Date())
+        val currentText = tvConsoleLogs.text.toString()
+        val newLine = "[$timestamp] $message\n"
+        tvConsoleLogs.text = newLine + currentText
+    }
+
+    private fun simulateSampleOrderEvaluation() {
+        appendLog("---------------------------------------------")
+        appendLog("[SIMULATION 1] Booking: 2.1 kg, 15x12x10 cm • Ermita, Manila")
+        appendLog("[SIZE EVAL] Sukat at timbang: MALIIT (Kasya sa 32L Thermal Bag).")
+        appendLog("[ROUTE EVAL] Manila Proper -> ALLOWED AREA.")
+        if (isSimulatedAvailabilityOn && switchMaster.isChecked) {
+            appendLog("[DECISION] ✅ PASOK LAHAT NG RULES! -> Auto-Clicking Accept...")
+        } else {
+            appendLog("[DECISION] ⏸️ NAKA-PAUSE (Master Switch o Shopee Availability ay OFF).")
+        }
+
+        appendLog("[SIMULATION 2] Booking: 19.5 kg, 65x55x40 cm • Tondo, Manila")
+        appendLog("[SIZE EVAL] ⚠️ OVERSIZED: Hindi kasya sa Honda Click 125 V4!")
+        appendLog("[ROUTE EVAL] 🚫 BANNED AREA: Papuntang Tondo!")
+        appendLog("[DECISION] 🛑 ZERO-CLICK POLICY: Hinihintay mag-timeout nang kusa. Walang iki-click!")
+        appendLog("---------------------------------------------")
+    }
+
+    private fun sendGestureTestCommand(actionName: String, extraBool: Boolean = false) {
         val intent = Intent(ShopeeAccessibilityService.ACTION_TEST_GESTURE).apply {
             putExtra(ShopeeAccessibilityService.EXTRA_TEST_ACTION, actionName)
+            putExtra("extra_toggle_value", extraBool)
         }
         sendBroadcast(intent)
-        Toast.makeText(this, "Gesture Test Command ($actionName) isinagawa!", Toast.LENGTH_SHORT).show()
     }
 
     private fun checkAndRequestOverlayPermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
-                Toast.makeText(this, "I-allow ang 'Permit drawing over other apps'.", Toast.LENGTH_LONG).show()
-                return false
-            }
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+            Toast.makeText(this, "I-allow ang 'Draw over other apps' para sa floating counter.", Toast.LENGTH_LONG).show()
+            return false
         }
         return true
     }
@@ -236,6 +415,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(availabilityReceiver)
+        unregisterReceiver(logReceiver)
     }
 }
