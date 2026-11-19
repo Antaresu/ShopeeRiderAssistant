@@ -77,7 +77,7 @@
                     android:orientation="vertical"
                     android:padding="12dp">
 
-                    <div
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
@@ -90,7 +90,7 @@
                             android:textSize="10sp"
                             android:textAllCaps="true"
                             android:fontFamily="monospace" />
-                    </div>
+                    </LinearLayout>
 
                     <!-- Live Banner: ON AVAILABILITY vs OFF AVAILABILITY -->
                     <LinearLayout
