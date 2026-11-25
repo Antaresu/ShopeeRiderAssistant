@@ -98,6 +98,12 @@ class MainActivity : AppCompatActivity() {
                     val isOn = intent.getBooleanExtra(ShopeeAccessibilityService.EXTRA_IS_AVAILABILITY_ON, false)
                     updateAvailabilityUI(isOn)
                 }
+                ShopeeAccessibilityService.ACTION_RIDER_PROFILE -> {
+                    val name = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_NAME) ?: "Christian Antero Rempis"
+                    val rating = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_RATING) ?: "5.00"
+                    val completion = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_COMPLETION) ?: "0.0%"
+                    appendLog("[RIDER SYNC] 👤 Rider: $name • Rating: $rating • Completion: $completion")
+                }
                 ShopeeAccessibilityService.ACTION_APP_LOG -> {
                     val logLine = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_LOG_LINE)
                     if (!logLine.isNullOrEmpty()) {
@@ -138,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         val filter = IntentFilter().apply {
             addAction(ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS)
             addAction(ShopeeAccessibilityService.ACTION_APP_LOG)
+            addAction(ShopeeAccessibilityService.ACTION_RIDER_PROFILE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(logReceiver, filter, Context.RECEIVER_NOT_EXPORTED)

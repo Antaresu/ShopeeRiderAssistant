@@ -9,13 +9,83 @@ import java.util.regex.Pattern
 
 object OrderParser {
 
+    data class RiderProfile(
+        val name: String? = null,
+        val rating: String? = null,
+        val completionRate: String? = null
+    )
+
     private val WEIGHT_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*(?:kg|kilos|kilo|g)", Pattern.CASE_INSENSITIVE)
     private val DIMENSION_PATTERN = Pattern.compile("(\\d+)\\s*[xX*×]\\s*(\\d+)\\s*[xX*×]\\s*(\\d+)")
     private val FARE_PATTERN = Pattern.compile("[₱P]\\s*(\\d+(?:\\.\\d+)?)")
+    private val RATING_PATTERN = Pattern.compile("([1-5]\\.\\d{2})")
+    private val COMPLETION_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?%)")
 
     private val ACCEPT_BUTTON_KEYWORDS = listOf(
         "tanggapin", "accept", "tanggapin ang order", "take order", "accept order"
     )
+
+    /**
+     * Checks if the Shopee Driver drawer menu is currently open on screen
+     */
+    fun isDrawerOpen(rootNode: AccessibilityNodeInfo?): Boolean {
+        if (rootNode == null) return false
+        var found = false
+        fun check(n: AccessibilityNodeInfo?) {
+            if (n == null || found) return
+            val text = (n.text?.toString() ?: n.contentDescription?.toString() ?: "").trim().lowercase()
+            if (text == "availability" || text == "my balance" || text == "penalty point" ||
+                text == "driver orientation" || text == "refer new friends" || text.contains("christian") ||
+                text == "order history" || text == "incentives") {
+                found = true
+                return
+            }
+            for (i in 0 until n.childCount) {
+                check(n.getChild(i))
+            }
+        }
+        check(rootNode)
+        return found
+    }
+
+    /**
+     * Extracts rider profile information (Name, Rating, Completion Rate) from Shopee Driver drawer / screen
+     */
+    fun detectRiderProfile(rootNode: AccessibilityNodeInfo?): RiderProfile {
+        if (rootNode == null) return RiderProfile()
+        var name: String? = null
+        var rating: String? = null
+        var completion: String? = null
+
+        fun scan(node: AccessibilityNodeInfo?) {
+            if (node == null) return
+            val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+            if (text.isNotEmpty()) {
+                val lower = text.lowercase()
+                if (lower.contains("christian") || lower.contains("antero") || lower.contains("rempis")) {
+                    name = text
+                }
+                if (rating == null) {
+                    val m = RATING_PATTERN.matcher(text)
+                    if (m.find()) {
+                        rating = m.group(1)
+                    }
+                }
+                if (completion == null) {
+                    val m = COMPLETION_PATTERN.matcher(text)
+                    if (m.find()) {
+                        completion = m.group(1)
+                    }
+                }
+            }
+            for (i in 0 until node.childCount) {
+                scan(node.getChild(i))
+            }
+        }
+
+        scan(rootNode)
+        return RiderProfile(name, rating, completion)
+    }
 
     /**
      * Checks if the "Availability" switch is ON or OFF in the Shopee Driver drawer or main screen
@@ -36,48 +106,70 @@ object OrderParser {
                     isAvailable = node.isChecked
                     return
                 }
-                val parent = node.parent
-                if (parent != null) {
-                    // Check siblings and children of siblings
-                    for (i in 0 until parent.childCount) {
-                        val child = parent.getChild(i) ?: continue
-                        val cText = (child.text?.toString() ?: "").lowercase()
-                        val cDesc = (child.contentDescription?.toString() ?: "").lowercase()
-                        val cClass = (child.className?.toString() ?: "")
 
-                        if (child.isCheckable || cClass.contains("Switch") || cClass.contains("Compound") || cClass.contains("CheckBox")) {
-                            isAvailable = child.isChecked
+                // Traverse container hierarchy up to 4 levels
+                var rowContainer: AccessibilityNodeInfo? = node.parent
+                var level = 0
+                while (rowContainer != null && level < 4 && isAvailable == null) {
+                    fun checkSubTree(n: AccessibilityNodeInfo?) {
+                        if (n == null || isAvailable != null) return
+                        val cText = (n.text?.toString() ?: "").lowercase()
+                        val cDesc = (n.contentDescription?.toString() ?: "").lowercase()
+                        val cClass = (n.className?.toString() ?: "")
+
+                        if (n.isCheckable || cClass.contains("Switch") || cClass.contains("Compound") || cClass.contains("CheckBox")) {
+                            isAvailable = n.isChecked
                             return
                         }
-                        if (cDesc.contains("checked") || cDesc.contains("on") || cDesc.contains("true") || cText == "on") {
+                        if (cDesc.contains("checked") || cDesc.contains("active") || cDesc.contains("true") || cDesc == "on" || cText == "on") {
                             isAvailable = true
                             return
                         }
-                        if (cDesc.contains("unchecked") || cDesc.contains("off") || cDesc.contains("false") || cText == "off") {
+                        if (cDesc.contains("unchecked") || cDesc.contains("inactive") || cDesc.contains("false") || cDesc == "off" || cText == "off") {
                             isAvailable = false
                             return
                         }
 
-                        // Grandchildren (e.g. switch inside container)
-                        for (j in 0 until child.childCount) {
-                            val gc = child.getChild(j) ?: continue
-                            val gcDesc = (gc.contentDescription?.toString() ?: "").lowercase()
-                            val gcClass = (gc.className?.toString() ?: "")
-                            if (gc.isCheckable || gcClass.contains("Switch")) {
-                                isAvailable = gc.isChecked
-                                return
-                            }
-                            if (gcDesc.contains("checked") || gcDesc.contains("on") || gcDesc.contains("true")) {
-                                isAvailable = true
-                                return
-                            }
-                            if (gcDesc.contains("unchecked") || gcDesc.contains("off") || gcDesc.contains("false")) {
-                                isAvailable = false
-                                return
-                            }
+                        for (k in 0 until n.childCount) {
+                            checkSubTree(n.getChild(k))
                         }
                     }
+
+                    checkSubTree(rowContainer)
+                    rowContainer = rowContainer.parent
+                    level++
                 }
+
+                if (isAvailable != null) return
+
+                // Coordinate-based check: check node on the right half of the Availability row
+                val rowBounds = Rect()
+                node.getBoundsInScreen(rowBounds)
+                fun scanRightSideNodes(n: AccessibilityNodeInfo?) {
+                    if (n == null || isAvailable != null) return
+                    val b = Rect()
+                    n.getBoundsInScreen(b)
+                    if (b.centerY() >= rowBounds.top - 30 && b.centerY() <= rowBounds.bottom + 30 && b.left > rowBounds.right) {
+                        val cDesc = (n.contentDescription?.toString() ?: "").lowercase()
+                        if (n.isCheckable) {
+                            isAvailable = n.isChecked
+                            return
+                        }
+                        if (cDesc.contains("on") || cDesc.contains("checked")) {
+                            isAvailable = true
+                            return
+                        }
+                        if (cDesc.contains("off") || cDesc.contains("unchecked")) {
+                            isAvailable = false
+                            return
+                        }
+                    }
+                    for (k in 0 until n.childCount) {
+                        scanRightSideNodes(n.getChild(k))
+                    }
+                }
+                scanRightSideNodes(rootNode)
+                if (isAvailable != null) return
             }
 
             for (i in 0 until node.childCount) {
@@ -95,14 +187,16 @@ object OrderParser {
 
                 if (text.contains("finding orders") || text.contains("looking for orders") ||
                     text.contains("ready for orders") || text.contains("you are online") ||
-                    text == "online" || text.contains("taking orders") || text.contains("naka-online")) {
+                    text == "online" || text.contains("taking orders") || text.contains("naka-online") ||
+                    text.contains("ready to receive")) {
                     isAvailable = true
                     return
                 }
 
                 if (text.contains("you are offline") || text.contains("tap to go online") ||
                     text.contains("start working") || text.contains("turn on availability") ||
-                    text == "offline" || text.contains("pahinga muna") || text.contains("naka-offline")) {
+                    text == "offline" || text.contains("pahinga muna") || text.contains("naka-offline") ||
+                    text.contains("go online")) {
                     isAvailable = false
                     return
                 }
@@ -128,8 +222,9 @@ object OrderParser {
             if (node == null || clicked) return
             val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
             if (text.equals("Availability", ignoreCase = true) || text.contains("availability", ignoreCase = true)) {
-                val parent = node.parent
-                if (parent != null) {
+                var parent = node.parent
+                var level = 0
+                while (parent != null && level < 4 && !clicked) {
                     for (i in 0 until parent.childCount) {
                         val child = parent.getChild(i)
                         if (child != null) {
@@ -144,7 +239,10 @@ object OrderParser {
                         clicked = parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                         if (clicked) return
                     }
+                    parent = parent.parent
+                    level++
                 }
+
                 if (node.isClickable) {
                     clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                     if (clicked) return
@@ -170,31 +268,40 @@ object OrderParser {
             if (node == null || foundRect != null) return
             val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
             if (text.equals("Availability", ignoreCase = true) || text.contains("availability", ignoreCase = true)) {
-                val parent = node.parent
-                if (parent != null) {
+                val nodeRect = Rect()
+                node.getBoundsInScreen(nodeRect)
+
+                var parent = node.parent
+                var rowRect = Rect(nodeRect)
+                var level = 0
+                while (parent != null && level < 4) {
+                    val pr = Rect()
+                    parent.getBoundsInScreen(pr)
+                    if (!pr.isEmpty && pr.width() > rowRect.width()) {
+                        rowRect = pr
+                    }
                     for (i in 0 until parent.childCount) {
-                        val child = parent.getChild(i)
-                        if (child != null) {
-                            val className = child.className?.toString() ?: ""
-                            if (child.isCheckable || className.contains("Switch") || className.contains("CompoundButton")) {
-                                val r = Rect()
-                                child.getBoundsInScreen(r)
-                                if (!r.isEmpty) {
-                                    foundRect = r
-                                    return
-                                }
+                        val child = parent.getChild(i) ?: continue
+                        val cClass = child.className?.toString() ?: ""
+                        if (child.isCheckable || cClass.contains("Switch") || cClass.contains("Compound")) {
+                            val r = Rect()
+                            child.getBoundsInScreen(r)
+                            if (!r.isEmpty) {
+                                foundRect = r
+                                return
                             }
                         }
                     }
-                    val parentRect = Rect()
-                    parent.getBoundsInScreen(parentRect)
-                    if (!parentRect.isEmpty) {
-                        // Switch is located on the right side of the row
-                        val switchX = (parentRect.right - (parentRect.height() * 0.8f)).toInt()
-                        foundRect = Rect(switchX, parentRect.top, parentRect.right, parentRect.bottom)
-                        return
-                    }
+                    parent = parent.parent
+                    level++
                 }
+
+                // Default coordinate: right edge of the row container
+                val switchWidth = (rowRect.height() * 1.5f).toInt().coerceAtLeast(80)
+                val switchRight = rowRect.right - 24
+                val switchLeft = switchRight - switchWidth
+                foundRect = Rect(switchLeft, rowRect.top, switchRight, rowRect.bottom)
+                return
             }
             for (i in 0 until node.childCount) {
                 search(node.getChild(i))
@@ -361,14 +468,28 @@ object OrderParser {
             }
         }
 
-        // 4. Extract Drop-off Address
+        // 4. Extract Drop-off Address & Rider Profile
+        var detectedRiderName: String? = null
+        var detectedRating: String? = null
+        var detectedCompletion: String? = null
+
         for (t in texts) {
             val lower = t.lowercase()
-            if (lower.contains("tondo") || lower.contains("manila") || lower.contains("malate") ||
+            if (lower.contains("christian") || lower.contains("antero") || lower.contains("rempis")) {
+                detectedRiderName = t
+            }
+            if (detectedRating == null) {
+                val m = RATING_PATTERN.matcher(t)
+                if (m.find()) detectedRating = m.group(1)
+            }
+            if (detectedCompletion == null) {
+                val m = COMPLETION_PATTERN.matcher(t)
+                if (m.find()) detectedCompletion = m.group(1)
+            }
+            if (detectedDropoff.isEmpty() && (lower.contains("tondo") || lower.contains("manila") || lower.contains("malate") ||
                 lower.contains("ermita") || lower.contains("sampaloc") || lower.contains("paco") ||
-                lower.contains("binondo") || lower.contains("sta. cruz") || lower.contains("santa cruz")) {
+                lower.contains("binondo") || lower.contains("sta. cruz") || lower.contains("santa cruz"))) {
                 detectedDropoff = t
-                break
             }
         }
 
@@ -428,7 +549,10 @@ object OrderParser {
             clickX = clickX,
             clickY = clickY,
             verdict = verdict,
-            reasonText = reason
+            reasonText = reason,
+            riderName = detectedRiderName,
+            riderRating = detectedRating,
+            riderCompletion = detectedCompletion
         )
     }
 }

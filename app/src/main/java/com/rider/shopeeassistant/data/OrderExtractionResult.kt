@@ -17,5 +17,8 @@ data class OrderExtractionResult(
     val clickX: Int? = null,
     val clickY: Int? = null,
     val verdict: DecisionVerdict = DecisionVerdict.IGNORED_NOT_AN_ORDER,
-    val reasonText: String = ""
+    val reasonText: String = "",
+    val riderName: String? = null,
+    val riderRating: String? = null,
+    val riderCompletion: String? = null
 )

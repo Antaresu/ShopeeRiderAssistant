@@ -26,6 +26,7 @@ class FloatingOverlayService : Service() {
     private var overlayView: View? = null
 
     private var tvTitle: TextView? = null
+    private var tvRiderInfo: TextView? = null
     private var tvReadout: TextView? = null
     private var tvCoords: TextView? = null
     private var tvVerdict: TextView? = null
@@ -38,10 +39,19 @@ class FloatingOverlayService : Service() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
 
+            // Handle Rider Profile Update
+            if (intent.action == ShopeeAccessibilityService.ACTION_RIDER_PROFILE) {
+                val riderName = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_NAME) ?: "Christian Antero Rempis"
+                val rating = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_RATING) ?: "5.00"
+                val completion = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_COMPLETION) ?: "0.0%"
+                tvRiderInfo?.text = "👤 $riderName • ⭐ $rating ($completion)"
+                return
+            }
+
             // Handle Availability Status Live Broadcast
             if (intent.action == ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS ||
                 intent.hasExtra(ShopeeAccessibilityService.EXTRA_IS_AVAILABILITY_ON)) {
-                val isAvailabilityOn = intent.getBooleanExtra(ShopeeAccessibilityService.EXTRA_IS_AVAILABILITY_ON, true)
+                val isAvailabilityOn = intent.getBooleanExtra(ShopeeAccessibilityService.EXTRA_IS_AVAILABILITY_ON, false)
                 updateAvailabilityDisplay(isAvailabilityOn)
                 if (!isAvailabilityOn) return
             }
@@ -53,12 +63,19 @@ class FloatingOverlayService : Service() {
             val clickY = intent.getIntExtra(ShopeeAccessibilityService.EXTRA_CLICK_Y, -1)
             val verdict = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_VERDICT) ?: ""
             val reason = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_REASON) ?: ""
+            val riderName = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_NAME)
+
+            if (!riderName.isNullOrEmpty()) {
+                val rating = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_RATING) ?: "5.00"
+                val completion = intent.getStringExtra(ShopeeAccessibilityService.EXTRA_RIDER_COMPLETION) ?: "0.0%"
+                tvRiderInfo?.text = "👤 $riderName • ⭐ $rating ($completion)"
+            }
 
             if (fare > 0 || weight > 0 || dropoff.isNotEmpty()) {
                 tvReadout?.text = "₱${fare.toInt()} • ${weight}kg • $dropoff"
             }
             if (clickX > 0 && clickY > 0) {
-                tvCoords?.text = "🎯 Tap Target: [X: $clickX, Y: $clickY]"
+                tvCoords?.text = "🎯 Target: [X: $clickX, Y: $clickY]"
             }
             if (verdict.isNotEmpty()) {
                 tvVerdict?.text = reason
@@ -100,6 +117,7 @@ class FloatingOverlayService : Service() {
         val filter = IntentFilter().apply {
             addAction(ShopeeAccessibilityService.ACTION_LIVE_EXTRACTION)
             addAction(ShopeeAccessibilityService.ACTION_AVAILABILITY_STATUS)
+            addAction(ShopeeAccessibilityService.ACTION_RIDER_PROFILE)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(liveUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -113,6 +131,7 @@ class FloatingOverlayService : Service() {
         overlayView = LayoutInflater.from(this).inflate(R.layout.overlay_hud, null)
 
         tvTitle = overlayView?.findViewById(R.id.overlayTitle)
+        tvRiderInfo = overlayView?.findViewById(R.id.overlayRiderInfo)
         tvReadout = overlayView?.findViewById(R.id.overlayReadoutText)
         tvCoords = overlayView?.findViewById(R.id.overlayCoordText)
         tvVerdict = overlayView?.findViewById(R.id.overlayVerdictBanner)
@@ -124,7 +143,9 @@ class FloatingOverlayService : Service() {
         val btnTestAvail = overlayView?.findViewById<View>(R.id.btnOverlayTestAvail)
         val btnTestSettings = overlayView?.findViewById<View>(R.id.btnOverlayTestSettings)
         val btnTestIncentives = overlayView?.findViewById<View>(R.id.btnOverlayTestIncentives)
+        val btnTestBalance = overlayView?.findViewById<View>(R.id.btnOverlayTestBalance)
         val btnTestSwipe = overlayView?.findViewById<View>(R.id.btnOverlayTestSwipe)
+        val btnTestTap = overlayView?.findViewById<View>(R.id.btnOverlayTestTap)
 
         // Expand / Collapse Action
         btnToggleExpand?.setOnClickListener {
@@ -143,8 +164,14 @@ class FloatingOverlayService : Service() {
         btnTestIncentives?.setOnClickListener {
             sendTestGesture("ACTION_TEST_INCENTIVES_CLICK")
         }
+        btnTestBalance?.setOnClickListener {
+            sendTestGesture("ACTION_TEST_BALANCE_CLICK")
+        }
         btnTestSwipe?.setOnClickListener {
             sendTestGesture("ACTION_TEST_SWIPE_ACCEPT")
+        }
+        btnTestTap?.setOnClickListener {
+            sendTestGesture("ACTION_TEST_ACCEPT_TAP")
         }
 
         val layoutParamsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

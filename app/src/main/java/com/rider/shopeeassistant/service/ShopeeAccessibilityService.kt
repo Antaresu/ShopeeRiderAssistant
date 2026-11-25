@@ -31,6 +31,7 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
     private var currentRules = OrderRuleModel()
     private var lastClickedOrderSignature = ""
     private var lastClickTimestamp = 0L
+    private var lastDetectedRiderName: String? = null
 
     // Live Shopee Driver Availability State (ON vs OFF) - Defaults to OFF as shown in driver screenshot
     var isShopeeAvailabilityOn: Boolean = false
@@ -42,6 +43,24 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
     var isSwipeModeEnabled = true
     var analyzeDelayMs = 450L
 
+    private fun ensureDrawerOpen(onReady: () -> Unit) {
+        val root = rootInActiveWindow
+        if (OrderParser.isDrawerOpen(root)) {
+            onReady()
+        } else {
+            // Swipe from left edge to open drawer
+            val displayMetrics = resources.displayMetrics
+            val startX = 10f
+            val endX = displayMetrics.widthPixels * 0.70f
+            val y = displayMetrics.heightPixels * 0.45f
+            dispatchSwipeGesture(startX, endX, y, 280)
+            broadcastLog("[ACTION] Binubuksan ang Shopee Driver side drawer...")
+            mainHandler.postDelayed({
+                onReady()
+            }, 450)
+        }
+    }
+
     private val testCommandReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
@@ -49,45 +68,86 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
 
             when (actionType) {
                 "ACTION_TEST_AVAILABILITY_CLICK" -> {
-                    val root = rootInActiveWindow
-                    var clicked = OrderParser.clickAvailabilitySwitch(root)
-                    if (!clicked) {
-                        val bounds = OrderParser.findAvailabilitySwitchBounds(root)
-                        if (bounds != null) {
-                            dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
-                            clicked = true
+                    ensureDrawerOpen {
+                        val root = rootInActiveWindow
+                        var clicked = OrderParser.clickAvailabilitySwitch(root)
+                        if (!clicked) {
+                            val bounds = OrderParser.findAvailabilitySwitchBounds(root)
+                            if (bounds != null) {
+                                dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                                clicked = true
+                            }
                         }
+                        mainHandler.postDelayed({
+                            val updatedRoot = rootInActiveWindow
+                            val detected = if (updatedRoot != null) OrderParser.detectAvailabilitySwitch(updatedRoot) else null
+                            if (detected != null) {
+                                updateAvailabilityStatus(detected, false)
+                            } else {
+                                updateAvailabilityStatus(!isShopeeAvailabilityOn, true)
+                            }
+                        }, 400)
+                        broadcastLog("[TEST CLICK] Shopee Availability switch toggle: ${if (clicked) "Click na-dispatch sa screen" else "Simulated toggle"}")
+                        speak("Sinubukan ang Availability toggle.")
                     }
-                    val newStatus = !isShopeeAvailabilityOn
-                    updateAvailabilityStatus(newStatus, true)
-                    broadcastLog("[TEST CLICK] Shopee Availability switch toggle: ${if (clicked) "Click na-dispatch sa screen" else "Simulated toggle to ${if (newStatus) "ON" else "OFF"}"}")
-                    speak("Sinubukan ang Availability click.")
                 }
                 "ACTION_TEST_INCENTIVES_CLICK" -> {
-                    val root = rootInActiveWindow
-                    var clicked = OrderParser.clickNodeWithText(root, listOf("incentives", "instant s-points", "s-points"))
-                    if (!clicked) {
-                        val bounds = OrderParser.findNodeBoundsWithText(root, listOf("incentives", "instant s-points", "s-points"))
-                        if (bounds != null) {
-                            dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
-                            clicked = true
+                    ensureDrawerOpen {
+                        val root = rootInActiveWindow
+                        var clicked = OrderParser.clickNodeWithText(root, listOf("incentives", "instant s-points", "s-points"))
+                        if (!clicked) {
+                            val bounds = OrderParser.findNodeBoundsWithText(root, listOf("incentives", "instant s-points", "s-points"))
+                            if (bounds != null) {
+                                dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                                clicked = true
+                            }
                         }
+                        broadcastLog("[TEST CLICK] Shopee Incentives menu click: ${if (clicked) "Na-click ang Incentives sa Shopee drawer" else "Walang Incentives text sa screen"}")
+                        speak(if (clicked) "Na-click ang Incentives sa Shopee." else "Sinubukan ang Incentives menu.")
                     }
-                    broadcastLog("[TEST CLICK] Shopee Incentives menu click: ${if (clicked) "Na-click ang Incentives" else "Walang Incentives text sa active screen"}")
-                    speak(if (clicked) "Na-click ang Incentives." else "Sinubukan ang Incentives menu.")
                 }
                 "ACTION_TEST_SETTINGS_CLICK" -> {
-                    val root = rootInActiveWindow
-                    var clicked = OrderParser.clickNodeWithText(root, listOf("settings", "setting"))
-                    if (!clicked) {
-                        val bounds = OrderParser.findNodeBoundsWithText(root, listOf("settings", "setting"))
-                        if (bounds != null) {
-                            dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
-                            clicked = true
+                    ensureDrawerOpen {
+                        val root = rootInActiveWindow
+                        var clicked = OrderParser.clickNodeWithText(root, listOf("settings", "setting"))
+                        if (!clicked) {
+                            val bounds = OrderParser.findNodeBoundsWithText(root, listOf("settings", "setting"))
+                            if (bounds != null) {
+                                dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                                clicked = true
+                            }
                         }
+                        broadcastLog("[TEST CLICK] Shopee Settings menu click: ${if (clicked) "Na-click ang Settings sa Shopee drawer" else "Walang Settings text sa screen"}")
+                        speak(if (clicked) "Na-click ang Settings sa Shopee." else "Sinubukan ang Settings menu.")
                     }
-                    broadcastLog("[TEST CLICK] Shopee Settings menu click: ${if (clicked) "Na-click ang Settings" else "Walang Settings text sa screen"}")
-                    speak(if (clicked) "Na-click ang Settings." else "Sinubukan ang Settings menu.")
+                }
+                "ACTION_TEST_BALANCE_CLICK" -> {
+                    ensureDrawerOpen {
+                        val root = rootInActiveWindow
+                        var clicked = OrderParser.clickNodeWithText(root, listOf("my balance", "balance"))
+                        if (!clicked) {
+                            val bounds = OrderParser.findNodeBoundsWithText(root, listOf("my balance", "balance"))
+                            if (bounds != null) {
+                                dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                                clicked = true
+                            }
+                        }
+                        broadcastLog("[TEST CLICK] Shopee My Balance click: ${if (clicked) "Na-click ang My Balance" else "Walang My Balance text sa screen"}")
+                    }
+                }
+                "ACTION_TEST_NOTIFICATION_CLICK" -> {
+                    ensureDrawerOpen {
+                        val root = rootInActiveWindow
+                        var clicked = OrderParser.clickNodeWithText(root, listOf("notification", "notifications"))
+                        if (!clicked) {
+                            val bounds = OrderParser.findNodeBoundsWithText(root, listOf("notification", "notifications"))
+                            if (bounds != null) {
+                                dispatchTapGesture(bounds.centerX().toFloat(), bounds.centerY().toFloat())
+                                clicked = true
+                            }
+                        }
+                        broadcastLog("[TEST CLICK] Shopee Notification click: ${if (clicked) "Na-click ang Notification" else "Walang Notification text sa screen"}")
+                    }
                 }
                 "ACTION_TEST_ACCEPT_TAP" -> {
                     val displayMetrics = resources.displayMetrics
@@ -155,13 +215,26 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         if (event == null) return
 
         val packageName = event.packageName?.toString() ?: return
+
+        // 1. CRITICAL GUARD: NEVER process accessibility events from our own assistant app!
+        // This prevents self-targeting loops, clicking our own buttons, and spam clicks.
+        if (packageName == this.packageName || packageName == "com.rider.shopeeassistant") {
+            return
+        }
+
+        // 2. Ignore system UI / keyboard / launchers
+        if (packageName.contains("launcher", ignoreCase = true) ||
+            packageName.contains("systemui", ignoreCase = true) ||
+            packageName.contains("inputmethod", ignoreCase = true)) {
+            return
+        }
+
         val isTargetApp = (targetPackageName.isNotEmpty() && packageName.equals(targetPackageName, ignoreCase = true)) ||
                 packageName.contains("shopee", ignoreCase = true) ||
                 packageName.contains("delivery", ignoreCase = true) ||
                 packageName.contains("driver", ignoreCase = true) ||
                 packageName.contains("food", ignoreCase = true) ||
-                packageName.contains("spx", ignoreCase = true) ||
-                packageName.contains("rider", ignoreCase = true)
+                packageName.contains("spx", ignoreCase = true)
 
         if (!isTargetApp) {
             return
@@ -170,6 +243,20 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         val rootNode = rootInActiveWindow ?: return
 
         try {
+            // Read Rider Profile (Christian Antero Rempis, Rating, Completion)
+            val profile = OrderParser.detectRiderProfile(rootNode)
+            if (profile.name != null && profile.name != lastDetectedRiderName) {
+                lastDetectedRiderName = profile.name
+                val profileText = "👤 ${profile.name} • ⭐ ${profile.rating ?: "5.00"} • 📊 ${profile.completionRate ?: "0.0%"}"
+                broadcastLog("[RIDER PROFILE] $profileText")
+                val riderIntent = Intent(ACTION_RIDER_PROFILE).apply {
+                    putExtra(EXTRA_RIDER_NAME, profile.name)
+                    putExtra(EXTRA_RIDER_RATING, profile.rating ?: "5.00")
+                    putExtra(EXTRA_RIDER_COMPLETION, profile.completionRate ?: "0.0%")
+                }
+                sendBroadcast(riderIntent)
+            }
+
             // 1. LIVE CHECK: Basahin kung naka-ON o naka-OFF ang Availability toggle sa Shopee Driver drawer o main screen
             val detectedAvailability = OrderParser.detectAvailabilitySwitch(rootNode)
             if (detectedAvailability != null && detectedAvailability != isShopeeAvailabilityOn) {
@@ -180,8 +267,11 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
             // 2. KUNG NAKA-OFF ANG AVAILABILITY SA SHOPEE: Auto-click is OFF & others
             if (!isShopeeAvailabilityOn) {
                 val offResult = OrderExtractionResult(
-                    reasonText = "OFF availability - auto click is off and others",
-                    verdict = DecisionVerdict.IGNORED_NOT_AN_ORDER
+                    reasonText = "🔴 off availability - auto click is off and others",
+                    verdict = DecisionVerdict.IGNORED_NOT_AN_ORDER,
+                    riderName = profile.name ?: lastDetectedRiderName,
+                    riderRating = profile.rating,
+                    riderCompletion = profile.completionRate
                 )
                 broadcastLiveReadout(offResult)
                 return
@@ -337,6 +427,9 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
             putExtra(EXTRA_VERDICT, result.verdict.name)
             putExtra(EXTRA_REASON, result.reasonText)
             putExtra(EXTRA_IS_AVAILABILITY_ON, isShopeeAvailabilityOn)
+            putExtra(EXTRA_RIDER_NAME, result.riderName ?: lastDetectedRiderName ?: "")
+            putExtra(EXTRA_RIDER_RATING, result.riderRating ?: "")
+            putExtra(EXTRA_RIDER_COMPLETION, result.riderCompletion ?: "")
         }
         sendBroadcast(intent)
     }
@@ -363,6 +456,7 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         const val ACTION_SERVICE_STATUS = "com.rider.shopeeassistant.ACTION_SERVICE_STATUS"
         const val ACTION_LIVE_EXTRACTION = "com.rider.shopeeassistant.ACTION_LIVE_EXTRACTION"
         const val ACTION_AVAILABILITY_STATUS = "com.rider.shopeeassistant.ACTION_AVAILABILITY_STATUS"
+        const val ACTION_RIDER_PROFILE = "com.rider.shopeeassistant.ACTION_RIDER_PROFILE"
         const val ACTION_TEST_GESTURE = "com.rider.shopeeassistant.ACTION_TEST_GESTURE"
         const val ACTION_APP_LOG = "com.rider.shopeeassistant.ACTION_APP_LOG"
         const val EXTRA_LOG_LINE = "extra_log_line"
@@ -377,5 +471,8 @@ class ShopeeAccessibilityService : AccessibilityService(), TextToSpeech.OnInitLi
         const val EXTRA_CLICK_Y = "extra_click_y"
         const val EXTRA_VERDICT = "extra_verdict"
         const val EXTRA_REASON = "extra_reason"
+        const val EXTRA_RIDER_NAME = "extra_rider_name"
+        const val EXTRA_RIDER_RATING = "extra_rider_rating"
+        const val EXTRA_RIDER_COMPLETION = "extra_rider_completion"
     }
 }

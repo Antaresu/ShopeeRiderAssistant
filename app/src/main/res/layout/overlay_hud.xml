@@ -51,12 +51,23 @@
         android:orientation="vertical"
         android:visibility="visible">
 
+        <!-- Rider Profile Line -->
+        <TextView
+            android:id="@+id/overlayRiderInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="👤 Christian Antero Rempis • ⭐ 5.00"
+            android:textColor="#FBBF24"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
         <!-- Live Readout Line -->
         <TextView
             android:id="@+id/overlayReadoutText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:text="Naka-standby sa Shopee Driver..."
             android:textColor="#94A3B8"
             android:textSize="10sp" />
@@ -88,7 +99,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Mabilisang Pindot sa Shopee Screen:"
+            android:text="Shopee Drawer / Screen Control:"
             android:textColor="#64748B"
             android:textSize="8sp" />
 
@@ -137,14 +148,46 @@
                 android:background="@drawable/bg_overlay_btn" />
 
             <TextView
-                android:id="@+id/btnOverlayTestSwipe"
+                android:id="@+id/btnOverlayTestBalance"
                 android:layout_width="0dp"
                 android:layout_height="28dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
                 android:gravity="center"
-                android:text="👉 Swipe"
+                android:text="💰 Balance"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_overlay_btn" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/btnOverlayTestSwipe"
+                android:layout_width="0dp"
+                android:layout_height="26dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="👉 Test Swipe Accept"
                 android:textColor="#10B981"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_overlay_btn" />
+
+            <TextView
+                android:id="@+id/btnOverlayTestTap"
+                android:layout_width="0dp"
+                android:layout_height="26dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:text="🎯 Test Tap Accept"
+                android:textColor="#38BDF8"
                 android:textSize="9sp"
                 android:textStyle="bold"
                 android:background="@drawable/bg_overlay_btn" />
